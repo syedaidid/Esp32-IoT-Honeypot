@@ -6,8 +6,10 @@ from django.shortcuts import render
 from django.db.models import Count, Max, Min, Q
 from django.core.paginator import Paginator
 from django.utils import timezone
+from django.conf import settings
+from django.core.cache import cache
 from datetime import timedelta
-import json, csv
+import json, csv, hmac
 from .models import AttackLog
 from django.http import HttpResponse
 from reportlab.lib.pagesizes import A4
@@ -25,11 +27,30 @@ VALID_ATTACK_TYPES = {
     'ip_blocked',
 }
 MAX_PAYLOAD_LEN = 500
+INGEST_RATE_LIMIT = 60       # allowed requests per IP per window
+INGEST_RATE_WINDOW = 60      # seconds
 
-# ── Receive attack from ESP32 (unauthenticated — ingest endpoint for the device) ──
+# ── Receive attack from ESP32 (ingest endpoint — protected by shared API key) ──
 @csrf_exempt
 @require_POST
 def receive_attack(request):
+    # API key auth: firmware must present the shared secret in X-API-Key
+    expected = getattr(settings, 'HONEYPOT_API_KEY', '')
+    if expected:
+        provided = request.headers.get('X-API-Key', '')
+        if not hmac.compare_digest(provided, expected):
+            print(f"[AUTH FAIL] Bad X-API-Key from {request.META.get('REMOTE_ADDR', '?')}")
+            return JsonResponse({'status': 'error', 'message': 'Unauthorized'}, status=403)
+
+    # Per-IP rate limit (cache-backed, 60 req/min — generous for one device)
+    client_ip = request.META.get('REMOTE_ADDR', '')
+    cache_key = f'ingest:{client_ip}'
+    hits = cache.get(cache_key, 0)
+    if hits >= INGEST_RATE_LIMIT:
+        print(f"[RATE LIMITED] {client_ip}")
+        return JsonResponse({'status': 'error', 'message': 'Rate limit exceeded'}, status=429)
+    cache.set(cache_key, hits + 1, INGEST_RATE_WINDOW)
+
     try:
         data = json.loads(request.body)
     except json.JSONDecodeError as e:
@@ -41,6 +62,14 @@ def receive_attack(request):
     port = data.get('port', None)
     attack_type = data.get('attack_type', '')
     payload = data.get('payload', '')
+    event_id = str(data.get('event_id', ''))[:64]
+
+    # Idempotency: if this event_id was already ingested, return the original row
+    if event_id:
+        existing = AttackLog.objects.filter(event_id=event_id).first()
+        if existing:
+            print(f"[DUPLICATE] event_id={event_id} -> row {existing.id}")
+            return JsonResponse({'status': 'duplicate', 'id': existing.id}, status=200)
 
     # Validate IP
     try:
@@ -68,9 +97,10 @@ def receive_attack(request):
         attacker_ip=attacker_ip,
         port=port,
         attack_type=attack_type,
-        payload=payload
+        payload=payload,
+        event_id=event_id or None,
     )
-    print(f"[ATTACK LOGGED] {log.attack_type} from {log.attacker_ip} on port {log.port}")
+    print(f"[ATTACK LOGGED] {log.attack_type} from {log.attacker_ip} on port {log.port} (event_id={event_id or '-'})")
     return JsonResponse({'status': 'ok', 'id': log.id}, status=201)
 
 @login_required

@@ -59,6 +59,11 @@ void blinkLED(int times = 3) {
   }
 }
 
+// ── Ingest authentication ────────────────────────────────────────────────────
+// Shared secret sent as X-API-Key. MUST equal HONEYPOT_API_KEY on the server
+// (production value lives in the .env; local dev uses settings_local.py).
+#define HONEYPOT_API_KEY "dev-esp32-honeypot-key"
+
 // ── Payload sanitiser ────────────────────────────────────────────────────────
 
 String sanitise(const String& raw) {
@@ -78,17 +83,28 @@ void sendToDjango(const String& ip, int port,
                   const String& attackType, const String& payload) {
   if (WiFi.status() != WL_CONNECTED) return;
 
+  // Unique id per event (boot-time millis + counter). Lets the server dedupe
+  // retries / double-posts, making ingestion idempotent.
+  static unsigned long eventCounter = 0;
+  String eventId = String(millis()) + "-" + String(eventCounter++);
+
   HTTPClient http;
   http.begin(serverURL);
   http.addHeader("Content-Type", "application/json");
+  http.addHeader("X-API-Key", HONEYPOT_API_KEY);
 
-  String body = "{\"attacker_ip\":\"" + ip + "\","
-                "\"port\":"           + port + ","
-                "\"attack_type\":\""  + attackType + "\","
-                "\"payload\":\""      + sanitise(payload) + "\"}";
+  String body = "{\"event_id\":\""     + eventId + "\","
+                "\"attacker_ip\":\""   + ip + "\","
+                "\"port\":"            + port + ","
+                "\"attack_type\":\""   + attackType + "\","
+                "\"payload\":\""       + sanitise(payload) + "\"}";
 
   int code = http.POST(body);
-  if (code == 400)
+  if (code == 403)
+    Serial.println("[ERR] 403 — API key mismatch, check HONEYPOT_API_KEY");
+  else if (code == 429)
+    Serial.println("[WARN] rate limited");
+  else if (code == 400)
     Serial.println("[ERR] Django rejected: " + http.getString());
   else
     Serial.println("[LOG] " + attackType + " from " + ip + " → " + code);

@@ -23,6 +23,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 import os
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
 
+# Shared secret the ESP32 firmware must present (X-API-Key header) to POST events.
+# Set HONEYPOT_API_KEY in the production .env; matches the #define in fyp.ino.
+HONEYPOT_API_KEY = os.environ.get('HONEYPOT_API_KEY', '')
+
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
