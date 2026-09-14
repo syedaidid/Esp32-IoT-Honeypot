@@ -1,0 +1,295 @@
+{% extends "detector/base.html" %}
+{% block title %}Dashboard — Hive Sentinel{% endblock %}
+
+{% block content %}
+<!-- Alert Banner -->
+<div class="alert-banner" id="alertBanner">
+  <b>▲ INTRUSION DETECTED</b>
+  <span id="alertDetail" style="color:#f4ead8"></span>
+</div>
+
+<!-- Sentry status -->
+<div class="status-line">
+  <span class="live">● SENTRY ONLINE</span>
+  <span class="sep">|</span>
+  <span>HONEYPOT BOARD AUTO-REFRESHING EVERY 10s</span>
+  {% if latest %}
+  <span class="sep">|</span>
+  <span>LAST DETECTED: <span style="color:#ffc554">{{ latest.attack_type|upper }}</span> FROM {{ latest.attacker_ip }} :{{ latest.port }}</span>
+  {% endif %}
+</div>
+
+<!-- Stats -->
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="number" id="totalNum">{{ total }}</div>
+    <div class="label">Total Attacks</div>
+  </div>
+  <div class="stat-card green">
+    <div class="number" id="uniqueNum">{{ unique_ips }}</div>
+    <div class="label">Unique Attackers</div>
+  </div>
+  <div id="typeCards" style="display:contents">
+  {% for t in by_type %}
+  <div class="stat-card {% if t.attack_type == 'port_scan' %}red{% elif t.attack_type == 'brute_force' %}yellow{% elif t.attack_type == 'ip_blocked' %}purple{% else %}green{% endif %}">
+    <div class="number">{{ t.count }}</div>
+    <div class="label">{{ t.attack_type|title }}</div>
+  </div>
+  {% endfor %}
+  </div>
+</div>
+
+<!-- Attacks over last 24h -->
+<div class="card">
+  <h3><span class="gold">ACTIVITY</span> — LAST 24 HOURS</h3>
+  <canvas id="timeChart" height="90"></canvas>
+</div>
+
+<div class="grid-2">
+  <div class="card">
+    <h3><span class="gold">THREAT</span> DISTRIBUTION</h3>
+    <canvas id="typeChart" height="200"></canvas>
+  </div>
+  <div class="card">
+    <h3><span class="gold">TOP</span> ATTACKER IPs</h3>
+    <canvas id="ipChart" height="200"></canvas>
+  </div>
+</div>
+
+<div class="grid-2">
+  <div class="card">
+    <h3><span class="gold">TOP</span> TARGETED PORTS</h3>
+    <canvas id="portChart" height="200"></canvas>
+  </div>
+  <div class="card">
+    <h3><span class="gold">BLOCKED</span> ATTACKERS</h3>
+    <table>
+      <thead>
+        <tr><th>IP Address</th><th>Blocked Events</th><th>Last Attempt</th></tr>
+      </thead>
+      <tbody id="bannedBody">
+        {% for b in banned %}
+        <tr>
+          <td><a class="link" href="{% url 'attacker_detail' b.attacker_ip %}">{{ b.attacker_ip }}</a></td>
+          <td class="tabular">{{ b.attempts }}</td>
+          <td class="tabular">{{ b.last }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="3"><span class="empty">No IPs have been blocked yet.</span></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Live Attack Log -->
+<div class="card console">
+  <div class="console-bar">
+    <span class="rec">●</span>
+    LIVE FEED — ATTACK LOG
+    <span style="flex:1"></span>
+    <input type="text" id="searchInput" class="field" style="min-width:190px;font-size:11px;padding:6px 10px" placeholder="FILTER IP / TYPE / PAYLOAD…">
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Attacker IP</th>
+        <th>Port</th>
+        <th>Attack Type</th>
+        <th>Payload</th>
+        <th>Timestamp</th>
+      </tr>
+    </thead>
+    <tbody id="attackTable">
+      {% for log in logs %}
+      <tr>
+        <td>{{ log.id }}</td>
+        <td><a class="link" href="{% url 'attacker_detail' log.attacker_ip %}">{{ log.attacker_ip }}</a></td>
+        <td>{{ log.port }}</td>
+        <td><span class="badge {{ log.attack_type }}">{{ log.attack_type }}</span></td>
+        <td class="payload" style="max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ log.payload }}</td>
+        <td>{{ log.timestamp }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <div style="padding:14px 16px">
+    <a href="{% url 'attack_logs' %}" class="btn ghost">View Full Log →</a>
+    <a href="{% url 'reports' %}" class="btn" style="margin-left:10px">⬇ Reports &amp; Export</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const DARK = '#f4ead8', MUTE = '#a48f6a', GRID = '#2b200e';
+
+  // ── Attacks over last 24 hours ──
+  new Chart(document.getElementById('timeChart'), {
+    type: 'bar',
+    data: {
+      labels: {{ time_labels|safe }},
+      datasets: [{
+        label: 'Attacks',
+        data: {{ hourly }},
+        backgroundColor: 'rgba(245,179,1,0.55)',
+        borderColor: '#f5b301',
+        borderWidth: 1,
+        borderRadius: 3
+      }]
+    },
+    options: {
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { ticks: { color: MUTE }, grid: { color: GRID }, beginAtZero: true },
+        x: { ticks: { color: MUTE, maxTicksLimit: 12 }, grid: { color: GRID } }
+      }
+    }
+  });
+
+  // ── Threat distribution ──
+  const typeChart = new Chart(document.getElementById('typeChart'), {
+    type: 'doughnut',
+    data: {
+      labels: [{% for t in by_type %}'{{ t.attack_type }}'{% if not forloop.last %},{% endif %}{% endfor %}],
+      datasets: [{
+        data: [{% for t in by_type %}{{ t.count }}{% if not forloop.last %},{% endif %}{% endfor %}],
+        backgroundColor: ['#ff6b57','#ff9d00','#6cb6ff','#7bd88f','#c792ea','#ffb44d'],
+        borderWidth: 0
+      }]
+    },
+    options: { plugins: { legend: { labels: { color: DARK, font: { size: 12 } } } } }
+  });
+
+  // ── Top attacker IPs ──
+  new Chart(document.getElementById('ipChart'), {
+    type: 'bar',
+    data: {
+      labels: [{% for i in by_ip %}'{{ i.attacker_ip }}'{% if not forloop.last %},{% endif %}{% endfor %}],
+      datasets: [{
+        label: 'Attacks',
+        data: [{% for i in by_ip %}{{ i.count }}{% if not forloop.last %},{% endif %}{% endfor %}],
+        backgroundColor: 'rgba(245,179,1,0.7)',
+        borderColor: '#f5b301',
+        borderWidth: 1,
+        borderRadius: 4
+      }]
+    },
+    options: {
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { ticks: { color: MUTE }, grid: { color: GRID } },
+        x: { ticks: { color: MUTE }, grid: { color: GRID } }
+      }
+    }
+  });
+
+  // ── Top targeted ports ──
+  const portChart = new Chart(document.getElementById('portChart'), {
+    type: 'bar',
+    data: {
+      labels: [{% for p in by_port %}'{{ p.port }}'{% if not forloop.last %},{% endif %}{% endfor %}],
+      datasets: [{
+        label: 'Attempts',
+        data: [{% for p in by_port %}{{ p.count }}{% if not forloop.last %},{% endif %}{% endfor %}],
+        backgroundColor: 'rgba(255,157,0,0.65)',
+        borderColor: '#ff9d00',
+        borderWidth: 1,
+        borderRadius: 4
+      }]
+    },
+    options: {
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { ticks: { color: MUTE }, grid: { color: GRID } },
+        x: { ticks: { color: MUTE }, grid: { color: GRID } }
+      }
+    }
+  });
+
+  // ── Live search filter ──
+  document.getElementById('searchInput').addEventListener('input', function () {
+    const q = this.value.toLowerCase();
+    document.querySelectorAll('#attackTable tr').forEach(row => {
+      row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+  });
+
+  // ── Live refresh every 10 seconds ──
+  let lastId = {{ logs.0.id|default:0 }};
+
+  function updateStats(d) {
+    document.getElementById('totalNum').textContent = d.total;
+    document.getElementById('uniqueNum').textContent = d.unique_ips;
+
+    typeChart.data.labels = d.by_type.map(x => x.attack_type);
+    typeChart.data.datasets[0].data = d.by_type.map(x => x.count);
+    typeChart.update();
+
+    portChart.data.labels = d.by_port.map(x => String(x.port));
+    portChart.data.datasets[0].data = d.by_port.map(x => x.count);
+    portChart.update();
+
+    const colors = { port_scan: 'red', brute_force: 'yellow', ip_blocked: 'purple' };
+    document.getElementById('typeCards').innerHTML =
+      d.by_type.map(t =>
+        `<div class="stat-card ${colors[t.attack_type] || 'green'}">` +
+        `<div class="number">${t.count}</div>` +
+        `<div class="label">${t.attack_type.replace(/_/g, ' ')}</div></div>`
+      ).join('');
+
+    const tb = document.getElementById('bannedBody');
+    tb.innerHTML = d.banned.length
+      ? d.banned.map(b =>
+          `<tr><td><a class="link" href="/attackers/${b.attacker_ip}/">${b.attacker_ip}</a></td>` +
+          `<td class="tabular">${b.attempts}</td><td class="tabular">${b.last}</td></tr>`).join('')
+      : `<tr><td colspan="3"><span class="empty">No IPs have been blocked yet.</span></td></tr>`;
+  }
+
+  setInterval(async () => {
+    const [latestRes, statsRes] = await Promise.all([
+      fetch('/api/latest/'),
+      fetch('/api/stats/')
+    ]);
+
+    // Session expired / not logged in — go to the login page instead of failing silently
+    if (!latestRes.ok || !statsRes.ok) {
+      window.location.assign('/accounts/login/?next=/');
+      return;
+    }
+
+    const data = await latestRes.json();
+    const stats = await statsRes.json();
+    updateStats(stats);
+
+    if (data.attacks.length > 0 && data.attacks[0].id > lastId) {
+      const newAttack = data.attacks[0];
+      lastId = newAttack.id;
+
+      document.getElementById('alertBanner').classList.add('show');
+      document.getElementById('alertDetail').textContent =
+        `${newAttack.attack_type} from ${newAttack.attacker_ip} on port ${newAttack.port}`;
+
+      const table = document.getElementById('attackTable');
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${newAttack.id}</td>
+        <td><a class="link" href="/attackers/${newAttack.attacker_ip}/">${newAttack.attacker_ip}</a></td>
+        <td>${newAttack.port}</td>
+        <td><span class="badge ${newAttack.attack_type}">${newAttack.attack_type}</span></td>
+        <td class="payload" style="max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${newAttack.payload.substring(0, 40)}</td>
+        <td>${newAttack.timestamp}</td>
+      `;
+      const q = document.getElementById('searchInput').value.toLowerCase();
+      if (q) row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+      table.insertBefore(row, table.firstChild);
+      if (table.rows.length > 60) table.deleteRow(table.rows.length - 1); // keep table bounded
+
+      setTimeout(() => {
+        document.getElementById('alertBanner').classList.remove('show');
+      }, 5000);
+    }
+  }, 10000);
+</script>
+{% endblock %}

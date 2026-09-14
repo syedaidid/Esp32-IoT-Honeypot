@@ -1,0 +1,33 @@
+{% extends "detector/base.html" %}
+{% block title %}Reports — Hive Sentinel{% endblock %}
+
+{% block content %}
+<h2 class="page-title" style="margin-bottom:6px">Reports &amp; Export</h2>
+<div class="subtitle" style="margin-bottom:22px">Generate forensic documents from the captured evidence</div>
+
+<div class="stats-grid">
+  <div class="stat-card"><div class="number">{{ total }}</div><div class="label">Total Events</div></div>
+  <div class="stat-card green"><div class="number">{{ unique_ips }}</div><div class="label">Unique Attackers</div></div>
+  <div class="stat-card yellow"><div class="number" style="font-size:18px">{{ first|default:"—" }}</div><div class="label">First Recorded Event</div></div>
+  <div class="stat-card"><div class="number" style="font-size:18px">{{ last|default:"—" }}</div><div class="label">Most Recent Event</div></div>
+</div>
+
+<div class="card">
+  <h3><span class="gold">FORENSIC</span> INCIDENT REPORT — PDF</h3>
+  <p style="font-size:13px;color:var(--muted);margin-bottom:20px;line-height:1.7;max-width:720px">
+    Generates a structured forensic document containing the executive summary, attack-type breakdown,
+    top attacker IPs, the full event log, and mitigation recommendations — suitable for record-keeping,
+    insurance claims, or escalation to law enforcement.
+  </p>
+  <a href="{% url 'forensic_report' %}" class="btn">⬇ Download PDF Report</a>
+</div>
+
+<div class="card">
+  <h3><span class="gold">RAW</span> DATA EXPORT — CSV</h3>
+  <p style="font-size:13px;color:var(--muted);margin-bottom:20px;line-height:1.7;max-width:720px">
+    Exports every recorded event as a CSV file that opens directly in spreadsheet software
+    (Excel, Google Sheets, LibreOffice) for deeper statistical analysis.
+  </p>
+  <a href="{% url 'export_csv' %}" class="btn ghost">⬇ Download CSV</a>
+</div>
+{% endblock %}

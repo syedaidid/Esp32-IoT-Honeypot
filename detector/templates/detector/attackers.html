@@ -1,0 +1,54 @@
+{% extends "detector/base.html" %}
+{% block title %}Attackers — Hive Sentinel{% endblock %}
+
+{% block content %}
+<h2 class="page-title" style="margin-bottom:6px">Attacker Index</h2>
+<div class="subtitle" style="margin-bottom:22px">Every hostile IP, ranked by engagement</div>
+
+<div class="card">
+  <table>
+    <thead>
+      <tr>
+        <th>IP Address</th>
+        <th>Total Events</th>
+        <th>Methods</th>
+        <th>Blocked</th>
+        <th>First Seen</th>
+        <th>Last Seen</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for a in page.object_list %}
+      <tr>
+        <td><a class="link" href="{% url 'attacker_detail' a.attacker_ip %}">{{ a.attacker_ip }}</a></td>
+        <td class="tabular">{{ a.total }}</td>
+        <td class="tabular">{{ a.methods }}</td>
+        <td>{% if a.blocked %}<span class="badge ip_blocked" style="color:#ff8a7a">● {{ a.blocked }} × BLOCKED</span>{% else %}<span style="color:var(--dim)">—</span>{% endif %}</td>
+        <td class="tabular">{{ a.first }}</td>
+        <td class="tabular">{{ a.last }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6" class="empty">▸ No attackers recorded yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% if page.paginator.num_pages > 1 %}
+  <div class="pagination">
+    {% if page.has_previous %}
+    <a href="?page={{ page.previous_page_number }}">← Prev</a>
+    {% endif %}
+    {% for n in page.paginator.page_range %}
+      {% if n == page.number %}
+      <span class="current">{{ n }}</span>
+      {% elif n >= page.number|add:"-3" and n <= page.number|add:"3" %}
+      <a href="?page={{ n }}">{{ n }}</a>
+      {% endif %}
+    {% endfor %}
+    {% if page.has_next %}
+    <a href="?page={{ page.next_page_number }}">Next →</a>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,121 @@
+{% extends "detector/base.html" %}
+{% block title %}Attacker {{ ip }} — Hive Sentinel{% endblock %}
+
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;flex-wrap:wrap;gap:10px">
+  <div>
+    <h2 class="page-title">Attacker Profile — <span style="color:var(--gold)">{{ ip }}</span></h2>
+    <div class="subtitle">Forensic dossier for this hostile address</div>
+  </div>
+  <a href="{% url 'attackers' %}" class="btn ghost">← All attackers</a>
+</div>
+
+{% if total == 0 %}
+<div class="card" style="margin-top:18px"><p class="empty">▸ No recorded activity for this IP.</p></div>
+{% else %}
+
+<div class="stats-grid" style="margin-top:18px">
+  <div class="stat-card"><div class="number">{{ total }}</div><div class="label">Total Events</div></div>
+  <div class="stat-card red"><div class="number">{{ blocked_hits }}</div><div class="label">Blocked Events</div></div>
+  <div class="stat-card yellow"><div class="number" style="font-size:19px">{{ first|date:"Y-m-d H:i" }}</div><div class="label">First Seen</div></div>
+  <div class="stat-card"><div class="number" style="font-size:19px">{{ last|date:"Y-m-d H:i" }}</div><div class="label">Last Seen</div></div>
+</div>
+
+<div class="card">
+  <h3><span class="gold">BEHAVIOUR</span> — LAST 24 HOURS</h3>
+  <canvas id="timeChart" height="90"></canvas>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px">
+  <div class="card">
+    <h3><span class="gold">METHODS</span> USED</h3>
+    <table>
+      <thead><tr><th>Attack Type</th><th>Count</th></tr></thead>
+      <tbody>
+        {% for t in by_type %}
+        <tr><td><span class="badge {{ t.attack_type }}">{{ t.attack_type }}</span></td><td class="tabular">{{ t.c }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card">
+    <h3><span class="gold">PORTS</span> TARGETED</h3>
+    <table>
+      <thead><tr><th>Port</th><th>Count</th></tr></thead>
+      <tbody>
+        {% for p in by_port %}
+        <tr><td class="tabular">{{ p.port }}</td><td class="tabular">{{ p.c }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card">
+  <h3><span class="gold">EVENT</span> HISTORY</h3>
+  <table>
+    <thead>
+      <tr><th>#</th><th>Port</th><th>Attack Type</th><th>Payload</th><th>Timestamp</th></tr>
+    </thead>
+    <tbody>
+      {% for log in page.object_list %}
+      <tr>
+        <td class="tabular">{{ log.id }}</td>
+        <td class="tabular">{{ log.port }}</td>
+        <td><span class="badge {{ log.attack_type }}">{{ log.attack_type }}</span></td>
+        <td class="payload" style="max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ log.payload }}</td>
+        <td class="tabular">{{ log.timestamp }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% if page.paginator.num_pages > 1 %}
+  <div class="pagination">
+    {% if page.has_previous %}
+    <a href="?page={{ page.previous_page_number }}">← Prev</a>
+    {% endif %}
+    {% for n in page.paginator.page_range %}
+      {% if n == page.number %}
+      <span class="current">{{ n }}</span>
+      {% elif n >= page.number|add:"-3" and n <= page.number|add:"3" %}
+      <a href="?page={{ n }}">{{ n }}</a>
+      {% endif %}
+    {% endfor %}
+    {% if page.has_next %}
+    <a href="?page={{ page.next_page_number }}">Next →</a>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if total %}
+<script>
+  new Chart(document.getElementById('timeChart'), {
+    type: 'bar',
+    data: {
+      labels: {{ time_labels|safe }},
+      datasets: [{
+        label: 'Events',
+        data: {{ hourly }},
+        backgroundColor: 'rgba(199,146,234,0.45)',
+        borderColor: '#c792ea',
+        borderWidth: 1,
+        borderRadius: 3
+      }]
+    },
+    options: {
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { ticks: { color: '#a48f6a' }, grid: { color: '#2b200e' }, beginAtZero: true },
+        x: { ticks: { color: '#a48f6a', maxTicksLimit: 12 }, grid: { color: '#2b200e' } }
+      }
+    }
+  });
+</script>
+{% endif %}
+{% endblock %}

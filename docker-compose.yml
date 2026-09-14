@@ -1,0 +1,51 @@
+services:
+  db:
+    image: mariadb:10.11
+    container_name: honeypot_db
+    restart: always
+    env_file:
+      - .env
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - db_data:/var/lib/mysql
+    ports:
+      - "3307:3306"
+
+  web:
+    build: .
+    container_name: honeypot_web
+    env_file:
+      - .env
+    restart: always
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py runserver 0.0.0.0:8000"
+    volumes:
+      - .:/app
+      - /home/ctfd/honeypot_fyp/static:/app/static
+    ports:
+      - "8001:8000"
+    depends_on:
+      - db
+    environment:
+      - DJANGO_SETTINGS_MODULE=honeypot.settings
+
+  nginx:
+    image: nginx:latest
+    container_name: honeypot_nginx
+    restart: always
+    ports:
+      - "8080:80"   # Maps host port 8080 to container port 80
+      - "8443:443"  # Maps host port 8443 to container port 443
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+      - /home/ctfd/honeypot_fyp/static:/var/html/static
+      - /etc/letsencrypt:/etc/letsencrypt
+      - /var/www/certbot:/var/www/certbot
+
+volumes:
+  db_data:

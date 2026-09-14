@@ -1,0 +1,25 @@
+# ── Secrets & environment ──
+.env
+
+# ── Local development only ──
+settings_local.py
+db.sqlite3
+
+# ── Python ──
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# ── Tooling / OS junk ──
+.vscode/
+.idea/
+.DS_Store
+
+# ── Backend logs & PID files (this repo only keeps source) ──
+*.log
+runserver.pid
+
+# ── Old / superseded firmware sketch ──
+esp32/Arduino/sketch_aug26a/

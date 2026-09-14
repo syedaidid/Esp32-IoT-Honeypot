@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign In — Hive Sentinel</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍯</text></svg>">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+    :root {
+      --bg: #0e0a05; --bg-deep: #090603;
+      --panel: #191005; --line: #38260f;
+      --gold: #f5b301; --amber: #ff9d00; --honey: #ffc554;
+      --cream: #f4ead8; --muted: #a48f6a; --dim: #6b5a3e;
+      --red: #ff6b57;
+      --font-head: 'Sora', sans-serif; --font-mono: 'IBM Plex Mono', monospace;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: var(--font-head);
+      background: var(--bg);
+      min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    body::before {
+      content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+      background:
+        radial-gradient(900px 500px at 50% -10%, rgba(245,179,1,.07), transparent 60%),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='96' viewBox='0 0 56 96'%3E%3Cpath d='M28 96L0 84V60L28 48L56 60v24z' fill='none' stroke='%23f5b301' stroke-opacity='0.05'/%3E%3Cpath d='M28 48L0 36V12L28 0l28 12v24z' fill='none' stroke='%23f5b301' stroke-opacity='0.05'/%3E%3C/svg%3E");
+      background-size: auto, 56px 96px;
+    }
+
+    .login-card {
+      background: linear-gradient(180deg, #1d1307 0%, #110b04 100%);
+      padding: 44px 40px; width: 380px; max-width: 92vw;
+      --cham: 26px;
+      clip-path: polygon(0 0, calc(100% - var(--cham)) 0, 100% var(--cham), 100% 100%, var(--cham) 100%, 0 calc(100% - var(--cham)));
+      box-shadow: inset 0 0 0 1px #38260f, 0 30px 70px -30px rgba(0,0,0,1);
+      position: relative;
+    }
+    .login-card::before {
+      content: ''; position: absolute; top: 0; left: 30px; right: 30px; height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(245,179,1,.5), transparent);
+    }
+
+    .hex {
+      width: 66px; height: 66px; margin: 0 auto 18px; display: block;
+      animation: float 6s ease-in-out infinite;
+    }
+    .hex .core { transform-origin: 20px 20px; animation: pulse 2.2s ease-in-out infinite; }
+    @keyframes float { 0%,100%{ transform: translateY(0) } 50%{ transform: translateY(-3px) } }
+    @keyframes pulse { 0%,100%{ opacity:.5 } 50%{ opacity:1 } }
+
+    h1 {
+      font-weight: 800; font-size: 21px; text-align: center;
+      background: linear-gradient(90deg, #ffdf8a, #f5b301 55%, #ff9d00);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    .subtitle {
+      font-family: var(--font-mono); font-size: 10px; letter-spacing: .28em; text-transform: uppercase;
+      color: var(--dim); text-align: center; margin: 8px 0 30px;
+    }
+
+    label {
+      display: block; font-family: var(--font-mono);
+      color: var(--muted); font-size: 10.5px; letter-spacing: .18em; text-transform: uppercase;
+      margin: 16px 0 6px;
+    }
+    input[type=text], input[type=password] {
+      width: 100%; padding: 11px 13px;
+      background: var(--bg-deep); border: 1px solid var(--line); border-radius: 4px;
+      color: var(--cream); font-family: var(--font-mono); font-size: 13px; outline: none;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    input:focus {
+      border-color: var(--gold);
+      box-shadow: 0 0 0 3px rgba(245,179,1,.15), 0 0 18px rgba(245,179,1,.2);
+    }
+
+    button {
+      width: 100%; margin-top: 24px; padding: 13px; border: 0; cursor: pointer;
+      font-family: var(--font-mono); font-size: 12px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase;
+      color: #1a1204;
+      background: linear-gradient(135deg, var(--honey), var(--amber));
+      clip-path: polygon(10px 0, calc(100% - 10px) 0, 100% 50%, calc(100% - 10px) 100%, 10px 100%, 0 50%);
+      transition: filter .2s, transform .15s;
+    }
+    button:hover { filter: brightness(1.12); transform: translateY(-1px); }
+    button:active { transform: translateY(0); }
+
+    .errors {
+      background: rgba(255,107,87,.1); border: 1px solid rgba(255,107,87,.5);
+      color: #ff8a7a; padding: 11px 13px; font-size: 12px; margin-top: 18px;
+      list-style: none; font-family: var(--font-mono);
+    }
+    .errors li { margin: 3px 0; }
+
+    .hint {
+      font-family: var(--font-mono); color: var(--dim); font-size: 10px;
+      text-align: center; margin-top: 22px; line-height: 1.8; letter-spacing: .05em;
+    }
+    .hint b { color: var(--muted); font-weight: 500; }
+  </style>
+</head>
+<body>
+
+<div class="login-card">
+  <svg class="hex" viewBox="0 0 40 40">
+    <defs><linearGradient id="hexg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffc554"/><stop offset="1" stop-color="#f5b301"/>
+    </linearGradient></defs>
+    <path d="M20 2 36 11v18L20 38 4 29V11z" fill="none" stroke="url(#hexg)" stroke-width="2"/>
+    <path d="M20 8 30 14v12L20 32 10 26V14z" fill="rgba(245,179,1,0.12)" stroke="url(#hexg)" stroke-width="1"/>
+    <circle class="core" cx="20" cy="20" r="3.5" fill="#ffc554"/>
+  </svg>
+  <h1>Hive Sentinel</h1>
+  <p class="subtitle">IoT Honeypot Console — Restricted Access</p>
+
+  <form method="post" action="{% url 'login' %}">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ next }}">
+
+    <label for="id_username">Username</label>
+    <input type="text" name="username" id="id_username" autofocus required>
+
+    <label for="id_password">Password</label>
+    <input type="password" name="password" id="id_password" required>
+
+    {% if form.non_field_errors %}
+    <ul class="errors">
+      {% for error in form.non_field_errors %}<li>▸ {{ error }}</li>{% endfor %}
+    </ul>
+    {% endif %}
+
+    <button type="submit">↳ Authorise Access</button>
+  </form>
+
+  <p class="hint">
+    <b>Authorised personnel only.</b><br>
+    Accounts are created by the administrator.<br>
+    5 failed attempts locks the account for 1 hour.
+  </p>
+</div>
+
+</body>
+</html>
