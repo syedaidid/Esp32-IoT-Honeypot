@@ -60,9 +60,9 @@ void blinkLED(int times = 3) {
 }
 
 // ── Ingest authentication ────────────────────────────────────────────────────
-// Shared secret sent as X-API-Key. MUST equal HONEYPOT_API_KEY on the server
-// (production value lives in the .env; local dev uses settings_local.py).
-#define HONEYPOT_API_KEY "dev-esp32-honeypot-key"
+// Shared secret sent as X-API-Key. MUST equal HONEYPOT_API_KEY on the server.
+// Production value (server .env, deployed 2026-09-14):
+#define HONEYPOT_API_KEY "7cc37a10fa30ca4da0f5c2cea3ef78bc906e2e0e6b71c8c9"
 
 // ── Payload sanitiser ────────────────────────────────────────────────────────
 
