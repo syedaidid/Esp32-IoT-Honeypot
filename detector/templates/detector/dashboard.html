@@ -5,7 +5,7 @@
 <!-- Alert Banner -->
 <div class="alert-banner" id="alertBanner">
   <b>▲ INTRUSION DETECTED</b>
-  <span id="alertDetail" style="color:#f4ead8"></span>
+  <span id="alertDetail" style="color:#e2e8f0"></span>
 </div>
 
 <!-- Sentry status -->
@@ -15,7 +15,7 @@
   <span>HONEYPOT BOARD AUTO-REFRESHING EVERY 10s</span>
   {% if latest %}
   <span class="sep">|</span>
-  <span>LAST DETECTED: <span style="color:#ffc554">{{ latest.attack_type|upper }}</span> FROM {{ latest.attacker_ip }} :{{ latest.port }}</span>
+  <span>LAST DETECTED: <span style="color:#67e8f9">{{ latest.attack_type|upper }}</span> FROM {{ latest.attacker_ip }} :{{ latest.port }}</span>
   {% endif %}
 </div>
 
@@ -123,7 +123,36 @@
 
 {% block scripts %}
 <script>
-  const DARK = '#f4ead8', MUTE = '#a48f6a', GRID = '#2b200e';
+  // ── Shared chart palette (matches base.html design tokens) ──
+  const DARK = '#e2e8f0', MUTE = '#64748b', GRID = 'rgba(148,163,184,0.08)';
+  const PALETTE = ['#f87171','#fb923c','#60a5fa','#34d399','#a78bfa','#fbbf24','#22d3ee'];
+
+  Chart.defaults.font.family = "'JetBrains Mono', ui-monospace, monospace";
+  Chart.defaults.color = MUTE;
+
+  const TOOLTIP = {
+    backgroundColor: '#0d1526',
+    borderColor: 'rgba(148,163,184,0.25)',
+    borderWidth: 1,
+    titleColor: '#e2e8f0',
+    bodyColor: '#94a3b8',
+    padding: 10,
+    cornerRadius: 8,
+    displayColors: false
+  };
+
+  // ── Count-up animation for the headline numbers ──
+  function countUp(el, to) {
+    const from = parseInt(el.dataset.v || '0', 10);
+    if (from === to) { el.textContent = to; return; }
+    el.dataset.v = to;
+    const t0 = performance.now(), dur = 550;
+    (function tick(t) {
+      const p = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - p, 3);
+      el.textContent = Math.round(from + (to - from) * e);
+      if (p < 1) requestAnimationFrame(tick);
+    })(t0);
+  }
 
   // ── Attacks over last 24 hours ──
   new Chart(document.getElementById('timeChart'), {
@@ -133,17 +162,23 @@
       datasets: [{
         label: 'Attacks',
         data: {{ hourly }},
-        backgroundColor: 'rgba(245,179,1,0.55)',
-        borderColor: '#f5b301',
-        borderWidth: 1,
-        borderRadius: 3
+        backgroundColor: (ctx) => {
+          const g = ctx.chart.ctx.createLinearGradient(0, 0, 0, ctx.chart.height);
+          g.addColorStop(0, 'rgba(34, 211, 238, 0.75)');
+          g.addColorStop(1, 'rgba(34, 211, 238, 0.12)');
+          return g;
+        },
+        borderColor: '#22d3ee',
+        borderWidth: 1.5,
+        borderRadius: 5,
+        borderSkipped: 'bottom'
       }]
     },
     options: {
-      plugins: { legend: { display: false } },
+      plugins: { legend: { display: false }, tooltip: TOOLTIP },
       scales: {
-        y: { ticks: { color: MUTE }, grid: { color: GRID }, beginAtZero: true },
-        x: { ticks: { color: MUTE, maxTicksLimit: 12 }, grid: { color: GRID } }
+        y: { ticks: { color: MUTE }, grid: { color: GRID }, beginAtZero: true, border: { display: false } },
+        x: { ticks: { color: MUTE, maxTicksLimit: 12 }, grid: { display: false }, border: { display: false } }
       }
     }
   });
@@ -155,11 +190,19 @@
       labels: [{% for t in by_type %}'{{ t.attack_type }}'{% if not forloop.last %},{% endif %}{% endfor %}],
       datasets: [{
         data: [{% for t in by_type %}{{ t.count }}{% if not forloop.last %},{% endif %}{% endfor %}],
-        backgroundColor: ['#ff6b57','#ff9d00','#6cb6ff','#7bd88f','#c792ea','#ffb44d'],
-        borderWidth: 0
+        backgroundColor: PALETTE,
+        borderWidth: 2,
+        borderColor: '#0d1526',
+        hoverOffset: 8
       }]
     },
-    options: { plugins: { legend: { labels: { color: DARK, font: { size: 12 } } } } }
+    options: {
+      cutout: '62%',
+      plugins: {
+        legend: { position: 'right', labels: { color: DARK, font: { size: 11 }, boxWidth: 12, boxHeight: 12, borderRadius: 3, useBorderRadius: true } },
+        tooltip: TOOLTIP
+      }
+    }
   });
 
   // ── Top attacker IPs ──
@@ -170,17 +213,19 @@
       datasets: [{
         label: 'Attacks',
         data: [{% for i in by_ip %}{{ i.count }}{% if not forloop.last %},{% endif %}{% endfor %}],
-        backgroundColor: 'rgba(245,179,1,0.7)',
-        borderColor: '#f5b301',
-        borderWidth: 1,
-        borderRadius: 4
+        backgroundColor: 'rgba(167, 139, 250, 0.55)',
+        borderColor: '#a78bfa',
+        borderWidth: 1.5,
+        borderRadius: 5,
+        borderSkipped: 'bottom'
       }]
     },
     options: {
-      plugins: { legend: { display: false } },
+      indexAxis: 'y',
+      plugins: { legend: { display: false }, tooltip: TOOLTIP },
       scales: {
-        y: { ticks: { color: MUTE }, grid: { color: GRID } },
-        x: { ticks: { color: MUTE }, grid: { color: GRID } }
+        x: { ticks: { color: MUTE }, grid: { color: GRID }, beginAtZero: true, border: { display: false } },
+        y: { ticks: { color: DARK }, grid: { display: false }, border: { display: false } }
       }
     }
   });
@@ -193,17 +238,18 @@
       datasets: [{
         label: 'Attempts',
         data: [{% for p in by_port %}{{ p.count }}{% if not forloop.last %},{% endif %}{% endfor %}],
-        backgroundColor: 'rgba(255,157,0,0.65)',
-        borderColor: '#ff9d00',
-        borderWidth: 1,
-        borderRadius: 4
+        backgroundColor: 'rgba(52, 211, 153, 0.45)',
+        borderColor: '#34d399',
+        borderWidth: 1.5,
+        borderRadius: 5,
+        borderSkipped: 'bottom'
       }]
     },
     options: {
-      plugins: { legend: { display: false } },
+      plugins: { legend: { display: false }, tooltip: TOOLTIP },
       scales: {
-        y: { ticks: { color: MUTE }, grid: { color: GRID } },
-        x: { ticks: { color: MUTE }, grid: { color: GRID } }
+        y: { ticks: { color: MUTE }, grid: { color: GRID }, beginAtZero: true, border: { display: false } },
+        x: { ticks: { color: DARK }, grid: { display: false }, border: { display: false } }
       }
     }
   });
@@ -220,8 +266,8 @@
   let lastId = {{ logs.0.id|default:0 }};
 
   function updateStats(d) {
-    document.getElementById('totalNum').textContent = d.total;
-    document.getElementById('uniqueNum').textContent = d.unique_ips;
+    countUp(document.getElementById('totalNum'), d.total);
+    countUp(document.getElementById('uniqueNum'), d.unique_ips);
 
     typeChart.data.labels = d.by_type.map(x => x.attack_type);
     typeChart.data.datasets[0].data = d.by_type.map(x => x.count);
@@ -273,6 +319,7 @@
 
       const table = document.getElementById('attackTable');
       const row = document.createElement('tr');
+      row.className = 'row-new';
       row.innerHTML = `
         <td>${newAttack.id}</td>
         <td><a class="link" href="/attackers/${newAttack.attacker_ip}/">${newAttack.attacker_ip}</a></td>

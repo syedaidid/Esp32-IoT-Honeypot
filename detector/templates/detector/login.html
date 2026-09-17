@@ -4,144 +4,206 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sign In — Hive Sentinel</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍯</text></svg>">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
     :root {
-      --bg: #0e0a05; --bg-deep: #090603;
-      --panel: #191005; --line: #38260f;
-      --gold: #f5b301; --amber: #ff9d00; --honey: #ffc554;
-      --cream: #f4ead8; --muted: #a48f6a; --dim: #6b5a3e;
-      --red: #ff6b57;
-      --font-head: 'Sora', sans-serif; --font-mono: 'IBM Plex Mono', monospace;
+      --bg: #070b14; --bg-deep: #04060c;
+      --panel: #0d1526; --panel-2: #111b30;
+      --line: rgba(148, 163, 184, 0.10); --line-hi: rgba(148, 163, 184, 0.20);
+      --cyan: #22d3ee; --violet: #a78bfa; --teal: #2dd4bf;
+      --red: #f87171; --green: #34d399;
+      --text: #e2e8f0; --muted: #94a3b8; --dim: #64748b;
+      --font-ui: 'Inter', system-ui, sans-serif;
+      --font-mono: 'JetBrains Mono', ui-monospace, monospace;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      font-family: var(--font-head);
+      font-family: var(--font-ui);
       background: var(--bg);
+      color: var(--text);
       min-height: 100vh;
       display: flex; align-items: center; justify-content: center;
       padding: 20px;
+      -webkit-font-smoothing: antialiased;
     }
     body::before {
       content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
       background:
-        radial-gradient(900px 500px at 50% -10%, rgba(245,179,1,.07), transparent 60%),
-        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='96' viewBox='0 0 56 96'%3E%3Cpath d='M28 96L0 84V60L28 48L56 60v24z' fill='none' stroke='%23f5b301' stroke-opacity='0.05'/%3E%3Cpath d='M28 48L0 36V12L28 0l28 12v24z' fill='none' stroke='%23f5b301' stroke-opacity='0.05'/%3E%3C/svg%3E");
-      background-size: auto, 56px 96px;
+        radial-gradient(900px 500px at 15% -5%, rgba(34, 211, 238, 0.08), transparent 60%),
+        radial-gradient(800px 500px at 85% 100%, rgba(167, 139, 250, 0.07), transparent 60%),
+        radial-gradient(circle at center, rgba(148, 163, 184, 0.05) 1px, transparent 1px);
+      background-size: auto, auto, 26px 26px;
     }
 
-    .login-card {
-      background: linear-gradient(180deg, #1d1307 0%, #110b04 100%);
-      padding: 44px 40px; width: 380px; max-width: 92vw;
-      --cham: 26px;
-      clip-path: polygon(0 0, calc(100% - var(--cham)) 0, 100% var(--cham), 100% 100%, var(--cham) 100%, 0 calc(100% - var(--cham)));
-      box-shadow: inset 0 0 0 1px #38260f, 0 30px 70px -30px rgba(0,0,0,1);
-      position: relative;
-    }
-    .login-card::before {
-      content: ''; position: absolute; top: 0; left: 30px; right: 30px; height: 1px;
-      background: linear-gradient(90deg, transparent, rgba(245,179,1,.5), transparent);
+    /* ── Split login card ── */
+    .login-wrap {
+      display: flex; width: 880px; max-width: 94vw;
+      background: linear-gradient(160deg, var(--panel-2) 0%, var(--panel) 100%);
+      border: 1px solid var(--line); border-radius: 20px; overflow: hidden;
+      box-shadow: 0 40px 90px -40px rgba(0, 0, 0, 0.9);
     }
 
-    .hex {
-      width: 66px; height: 66px; margin: 0 auto 18px; display: block;
-      animation: float 6s ease-in-out infinite;
+    /* ── Left: brand panel ── */
+    .brand-panel {
+      flex: 1.1; padding: 52px 44px; position: relative; overflow: hidden;
+      background:
+        radial-gradient(600px 400px at 20% 10%, rgba(34, 211, 238, 0.14), transparent 55%),
+        radial-gradient(500px 380px at 90% 95%, rgba(167, 139, 250, 0.12), transparent 55%),
+        linear-gradient(155deg, #0a1626 0%, #0a1120 100%);
+      border-right: 1px solid var(--line);
+      display: flex; flex-direction: column; justify-content: center; gap: 0;
     }
-    .hex .core { transform-origin: 20px 20px; animation: pulse 2.2s ease-in-out infinite; }
-    @keyframes float { 0%,100%{ transform: translateY(0) } 50%{ transform: translateY(-3px) } }
-    @keyframes pulse { 0%,100%{ opacity:.5 } 50%{ opacity:1 } }
-
-    h1 {
-      font-weight: 800; font-size: 21px; text-align: center;
-      background: linear-gradient(90deg, #ffdf8a, #f5b301 55%, #ff9d00);
+    .brand-panel::after {
+      content: ''; position: absolute; inset: 0; pointer-events: none;
+      background: radial-gradient(circle at 30% 20%, rgba(34, 211, 238, 0.06), transparent 40%);
+      animation: aurora 9s ease-in-out infinite alternate;
+    }
+    @keyframes aurora {
+      0%   { opacity: .5; transform: translateX(0); }
+      100% { opacity: 1; transform: translateX(24px); }
+    }
+    .brand-panel .logo-hex { width: 58px; height: 58px; margin-bottom: 22px; filter: drop-shadow(0 0 16px rgba(34, 211, 238, 0.4)); }
+    .brand-panel h1 {
+      font-weight: 800; font-size: 28px; letter-spacing: -0.02em;
+      background: linear-gradient(90deg, #e0f2fe, var(--cyan) 55%, var(--violet));
       -webkit-background-clip: text; background-clip: text; color: transparent;
     }
-    .subtitle {
-      font-family: var(--font-mono); font-size: 10px; letter-spacing: .28em; text-transform: uppercase;
-      color: var(--dim); text-align: center; margin: 8px 0 30px;
+    .brand-panel .tag {
+      font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .28em; text-transform: uppercase;
+      color: var(--dim); margin: 10px 0 26px;
+    }
+    .brand-panel p.desc { font-size: 13.5px; line-height: 1.75; color: var(--muted); max-width: 34ch; }
+    .brand-panel .feat {
+      margin-top: 28px; display: flex; flex-direction: column; gap: 10px;
+      font-family: var(--font-mono); font-size: 11.5px; color: var(--muted);
+    }
+    .brand-panel .feat span { display: flex; align-items: center; gap: 10px; }
+    .brand-panel .feat .tick {
+      width: 16px; height: 16px; border-radius: 50%; flex: none;
+      background: rgba(52, 211, 153, 0.12); color: var(--green);
+      display: inline-flex; align-items: center; justify-content: center; font-size: 10px;
+      border: 1px solid rgba(52, 211, 153, 0.3);
+    }
+
+    /* ── Right: form panel ── */
+    .form-panel { flex: 1; padding: 52px 44px; position: relative; }
+    .form-panel::before {
+      content: ''; position: absolute; top: 0; left: 36px; right: 36px; height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(34, 211, 238, 0.45), transparent);
+    }
+    .form-panel h2 { font-weight: 700; font-size: 19px; letter-spacing: -0.01em; }
+    .form-panel .sub {
+      font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .18em; text-transform: uppercase;
+      color: var(--dim); margin: 8px 0 30px;
     }
 
     label {
       display: block; font-family: var(--font-mono);
       color: var(--muted); font-size: 10.5px; letter-spacing: .18em; text-transform: uppercase;
-      margin: 16px 0 6px;
+      margin: 18px 0 7px;
     }
     input[type=text], input[type=password] {
-      width: 100%; padding: 11px 13px;
-      background: var(--bg-deep); border: 1px solid var(--line); border-radius: 4px;
-      color: var(--cream); font-family: var(--font-mono); font-size: 13px; outline: none;
-      transition: border-color .2s, box-shadow .2s;
+      width: 100%; padding: 12px 14px;
+      background: var(--bg-deep); border: 1px solid var(--line); border-radius: 10px;
+      color: var(--text); font-family: var(--font-mono); font-size: 13px; outline: none;
+      transition: border-color .18s, box-shadow .18s;
     }
     input:focus {
-      border-color: var(--gold);
-      box-shadow: 0 0 0 3px rgba(245,179,1,.15), 0 0 18px rgba(245,179,1,.2);
+      border-color: rgba(34, 211, 238, 0.65);
+      box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.14);
     }
 
     button {
-      width: 100%; margin-top: 24px; padding: 13px; border: 0; cursor: pointer;
-      font-family: var(--font-mono); font-size: 12px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase;
-      color: #1a1204;
-      background: linear-gradient(135deg, var(--honey), var(--amber));
-      clip-path: polygon(10px 0, calc(100% - 10px) 0, 100% 50%, calc(100% - 10px) 100%, 10px 100%, 0 50%);
-      transition: filter .2s, transform .15s;
+      width: 100%; margin-top: 28px; padding: 13px; border: 0; cursor: pointer;
+      font-family: var(--font-ui); font-weight: 700; font-size: 13px;
+      color: #04121a; border-radius: 10px;
+      background: linear-gradient(135deg, #67e8f9, var(--cyan));
+      box-shadow: 0 12px 28px -12px rgba(34, 211, 238, 0.6);
+      transition: filter .18s, transform .15s, box-shadow .18s;
     }
-    button:hover { filter: brightness(1.12); transform: translateY(-1px); }
+    button:hover { filter: brightness(1.08); transform: translateY(-1px); }
     button:active { transform: translateY(0); }
 
     .errors {
-      background: rgba(255,107,87,.1); border: 1px solid rgba(255,107,87,.5);
-      color: #ff8a7a; padding: 11px 13px; font-size: 12px; margin-top: 18px;
-      list-style: none; font-family: var(--font-mono);
+      background: rgba(248, 113, 113, 0.10); border: 1px solid rgba(248, 113, 113, 0.4);
+      color: #fca5a5; padding: 11px 14px; font-size: 12px; margin-top: 20px;
+      list-style: none; font-family: var(--font-mono); border-radius: 10px;
     }
     .errors li { margin: 3px 0; }
 
     .hint {
       font-family: var(--font-mono); color: var(--dim); font-size: 10px;
-      text-align: center; margin-top: 22px; line-height: 1.8; letter-spacing: .05em;
+      text-align: center; margin-top: 26px; line-height: 1.9; letter-spacing: .04em;
     }
     .hint b { color: var(--muted); font-weight: 500; }
+
+    @media (max-width: 780px) {
+      .brand-panel { display: none; }
+      .form-panel { padding: 40px 30px; }
+    }
   </style>
 </head>
 <body>
 
-<div class="login-card">
-  <svg class="hex" viewBox="0 0 40 40">
-    <defs><linearGradient id="hexg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#ffc554"/><stop offset="1" stop-color="#f5b301"/>
-    </linearGradient></defs>
-    <path d="M20 2 36 11v18L20 38 4 29V11z" fill="none" stroke="url(#hexg)" stroke-width="2"/>
-    <path d="M20 8 30 14v12L20 32 10 26V14z" fill="rgba(245,179,1,0.12)" stroke="url(#hexg)" stroke-width="1"/>
-    <circle class="core" cx="20" cy="20" r="3.5" fill="#ffc554"/>
-  </svg>
-  <h1>Hive Sentinel</h1>
-  <p class="subtitle">IoT Honeypot Console — Restricted Access</p>
+<div class="login-wrap">
+  <!-- Brand panel -->
+  <div class="brand-panel">
+    <svg class="logo-hex" viewBox="0 0 40 40">
+      <defs><linearGradient id="hexg" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#67e8f9"/><stop offset="1" stop-color="#a78bfa"/>
+      </linearGradient></defs>
+      <path d="M20 2 36 11v18L20 38 4 29V11z" fill="none" stroke="url(#hexg)" stroke-width="2"/>
+      <path d="M20 8 30 14v12L20 32 10 26V14z" fill="rgba(34,211,238,0.10)" stroke="url(#hexg)" stroke-width="1"/>
+      <circle cx="20" cy="20" r="2.8" fill="#67e8f9"/>
+    </svg>
+    <h1>Hive Sentinel</h1>
+    <p class="tag">IoT Honeypot Console</p>
+    <p class="desc">
+      Deception-based intrusion detection for Yumplingy Enterprise.
+      This console monitors a low-interaction ESP32 honeypot that
+      attracts, logs and fingerprints attackers in real time.
+    </p>
+    <div class="feat">
+      <span><span class="tick">✓</span> LIVE ATTACK TELEMETRY — 10s REFRESH</span>
+      <span><span class="tick">✓</span> FORENSIC ATTACKER PROFILES &amp; EXPORTS</span>
+      <span><span class="tick">✓</span> ACCOUNT LOCKOUT AFTER 5 FAILED ATTEMPTS</span>
+    </div>
+  </div>
 
-  <form method="post" action="{% url 'login' %}">
-    {% csrf_token %}
-    <input type="hidden" name="next" value="{{ next }}">
+  <!-- Form panel -->
+  <div class="form-panel">
+    <h2>Authorised Access</h2>
+    <p class="sub">Sign in to the monitoring console</p>
 
-    <label for="id_username">Username</label>
-    <input type="text" name="username" id="id_username" autofocus required>
+    <form method="post" action="{% url 'login' %}">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ next }}">
 
-    <label for="id_password">Password</label>
-    <input type="password" name="password" id="id_password" required>
+      <label for="id_username">Username</label>
+      <input type="text" name="username" id="id_username" autofocus required>
 
-    {% if form.non_field_errors %}
-    <ul class="errors">
-      {% for error in form.non_field_errors %}<li>▸ {{ error }}</li>{% endfor %}
-    </ul>
-    {% endif %}
+      <label for="id_password">Password</label>
+      <input type="password" name="password" id="id_password" required>
 
-    <button type="submit">↳ Authorise Access</button>
-  </form>
+      {% if form.non_field_errors %}
+      <ul class="errors">
+        {% for error in form.non_field_errors %}<li>▸ {{ error }}</li>{% endfor %}
+      </ul>
+      {% endif %}
 
-  <p class="hint">
-    <b>Authorised personnel only.</b><br>
-    Accounts are created by the administrator.<br>
-    5 failed attempts locks the account for 1 hour.
-  </p>
+      <button type="submit">Sign In →</button>
+    </form>
+
+    <p class="hint">
+      <b>Authorised personnel only.</b><br>
+      Accounts are created by the administrator.<br>
+      5 failed attempts locks the account for 1 hour.
+    </p>
+  </div>
 </div>
 
 </body>
