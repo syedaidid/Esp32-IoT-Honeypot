@@ -97,7 +97,8 @@ void sendToDjango(const String& ip, int port,
                 "\"attacker_ip\":\""   + ip + "\","
                 "\"port\":"            + port + ","
                 "\"attack_type\":\""   + attackType + "\","
-                "\"payload\":\""       + sanitise(payload) + "\"}";
+                "\"payload\":\""       + sanitise(payload) + "\","
+                "\"sensor\":\"esp32-lan\"}";
 
   int code = http.POST(body);
   if (code == 403)

@@ -43,10 +43,7 @@ services:
       - .env
     restart: always
     network_mode: host
-    command: >
-      sh -c "python scripts/vps_sensor.py
-             --url https://fyp.syedaidid.xyz/api/attacks/
-             --key \"$$HONEYPOT_API_KEY\""
+    entrypoint: ["python", "scripts/vps_sensor.py", "--url", "https://fyp.syedaidid.xyz/api/attacks/", "--key", "${HONEYPOT_API_KEY}"]
     depends_on:
       - web
 
