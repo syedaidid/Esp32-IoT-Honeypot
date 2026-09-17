@@ -34,6 +34,22 @@ services:
     environment:
       - DJANGO_SETTINGS_MODULE=honeypot.settings
 
+  # Internet-facing decoy sensor — same ingest pipeline as the ESP32.
+  # Host network so it binds real decoy ports (23/2323/21/5555/7547).
+  sensor:
+    build: .
+    container_name: honeypot_sensor
+    env_file:
+      - .env
+    restart: always
+    network_mode: host
+    command: >
+      sh -c "python scripts/vps_sensor.py
+             --url https://fyp.syedaidid.xyz/api/attacks/
+             --key \"$$HONEYPOT_API_KEY\""
+    depends_on:
+      - web
+
   nginx:
     image: nginx:latest
     container_name: honeypot_nginx

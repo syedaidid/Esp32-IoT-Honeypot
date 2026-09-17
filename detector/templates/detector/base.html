@@ -350,6 +350,7 @@
   <div class="links">
     <a href="{% url 'dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">Dashboard</a>
     <a href="{% url 'attack_logs' %}" class="{% if request.resolver_match.url_name == 'attack_logs' %}active{% endif %}">Attack Log</a>
+    <a href="{% url 'threat_map' %}" class="{% if request.resolver_match.url_name == 'threat_map' %}active{% endif %}">Threat Map</a>
     <a href="{% url 'attackers' %}" class="{% if request.resolver_match.url_name == 'attackers' or request.resolver_match.url_name == 'attacker_detail' %}active{% endif %}">Attackers</a>
     <a href="{% url 'reports' %}" class="{% if request.resolver_match.url_name == 'reports' %}active{% endif %}">Reports</a>
   </div>

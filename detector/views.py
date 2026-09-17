@@ -9,8 +9,8 @@ from django.utils import timezone
 from django.conf import settings
 from django.core.cache import cache
 from datetime import timedelta
-import json, csv, hmac
-from .models import AttackLog
+import json, csv, hmac, ipaddress
+from .models import AttackLog, AttackerGeo, SENSOR_IDS
 from django.http import HttpResponse
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
@@ -30,7 +30,60 @@ MAX_PAYLOAD_LEN = 500
 INGEST_RATE_LIMIT = 60       # allowed requests per IP per window
 INGEST_RATE_WINDOW = 60      # seconds
 
-# ── Receive attack from ESP32 (ingest endpoint — protected by shared API key) ──
+# ── GeoIP (free ip-api.com, cached per-IP in AttackerGeo) ─────────────────────
+GEO_LOOKUP_TIMEOUT = 5
+GEO_MAX_PER_HOUR = 200        # stay well under the free tier (45 req/min)
+
+def _geo_rate_ok():
+    hits = cache.get('geo:lookups', 0)
+    return hits < GEO_MAX_PER_HOUR
+
+def lookup_geo(attacker_ip):
+    """Return (lat, lon, country, city, country_code, isp) or None.
+
+    Cached per IP in AttackerGeo; private/bogon and failed lookups are marked
+    lookup_failed so they are never retried. Runs only when the hourly budget
+    allows — geo enrichment must never block or spam.
+    """
+    cached = AttackerGeo.objects.filter(attacker_ip=attacker_ip).first()
+    if cached:
+        return None if cached.lookup_failed else cached
+
+    addr = ipaddress.ip_address(attacker_ip)
+    if addr.is_private or addr.is_loopback or addr.is_link_local or addr.is_reserved:
+        AttackerGeo.objects.update_or_create(
+            attacker_ip=attacker_ip, defaults={'lookup_failed': True})
+        return None
+    if not _geo_rate_ok():
+        return None  # budget spent — skip silently, retry on a later event
+
+    try:
+        import urllib.request
+        url = f'http://ip-api.com/json/{attacker_ip}?fields=status,country,countryCode,city,lat,lon,isp'
+        with urllib.request.urlopen(url, timeout=GEO_LOOKUP_TIMEOUT) as r:
+            data = json.loads(r.read().decode())
+        if data.get('status') != 'success':
+            raise ValueError(data.get('message', 'lookup failed'))
+        geo, _ = AttackerGeo.objects.update_or_create(
+            attacker_ip=attacker_ip,
+            defaults={
+                'country': (data.get('country') or '')[:80] or None,
+                'country_code': data.get('countryCode') or None,
+                'city': (data.get('city') or '')[:80] or None,
+                'latitude': data.get('lat'),
+                'longitude': data.get('lon'),
+                'isp': (data.get('isp') or '')[:120] or None,
+                'lookup_failed': False,
+            })
+        cache.set('geo:lookups', cache.get('geo:lookups', 0) + 1, 3600)
+        return geo
+    except Exception:
+        # failed lookups are NOT marked permanently failed (transient errors),
+        # but consume no further retries within this hour window
+        cache.set('geo:lookups', cache.get('geo:lookups', 0) + 1, 3600)
+        return None
+
+# ── Receive attack from ESP32 / VPS sensor (ingest — shared API key) ──
 @csrf_exempt
 @require_POST
 def receive_attack(request):
@@ -63,6 +116,7 @@ def receive_attack(request):
     attack_type = data.get('attack_type', '')
     payload = data.get('payload', '')
     event_id = str(data.get('event_id', ''))[:64]
+    sensor = str(data.get('sensor', 'esp32-lan'))[:20]
 
     # Idempotency: if this event_id was already ingested, return the original row
     if event_id:
@@ -77,6 +131,12 @@ def receive_attack(request):
     except (ValueError, TypeError):
         print(f"[REJECTED] Invalid IP: {attacker_ip!r}")
         return JsonResponse({'status': 'error', 'message': 'Invalid attacker_ip'}, status=400)
+
+    # Validate sensor id (unknown sensors are rejected, not defaulted — a typo
+    # in firmware/config should surface loudly instead of corrupting analytics)
+    if sensor not in SENSOR_IDS:
+        print(f"[REJECTED] Unknown sensor: {sensor!r}")
+        return JsonResponse({'status': 'error', 'message': 'Invalid sensor'}, status=400)
 
     # Validate port
     if not isinstance(port, int) or not (0 <= port <= 65535):
@@ -99,8 +159,13 @@ def receive_attack(request):
         attack_type=attack_type,
         payload=payload,
         event_id=event_id or None,
+        sensor=sensor,
     )
-    print(f"[ATTACK LOGGED] {log.attack_type} from {log.attacker_ip} on port {log.port} (event_id={event_id or '-'})")
+
+    # Geo-enrichment (best-effort, cached; private IPs skipped instantly)
+    geo = lookup_geo(attacker_ip) if sensor == 'vps-sensor' else None
+    loc = f" ({geo.city}, {geo.country_code})" if geo else ''
+    print(f"[ATTACK LOGGED] {log.attack_type} from {log.attacker_ip}{loc} on port {log.port} (event_id={event_id or '-'}, sensor={sensor})")
     return JsonResponse({'status': 'ok', 'id': log.id}, status=201)
 
 @login_required
@@ -199,6 +264,38 @@ def stats_api(request):
         'top_ip': top_ip,
         'banned': banned,
     })
+
+# ── Geolocation data for the threat map ──
+@login_required
+def geo_api(request):
+    """Attack origins joined with cached geo lookups — feeds the Leaflet map."""
+    rows = (
+        AttackLog.objects
+        .exclude(attacker_ip__startswith='192.168.')
+        .exclude(attacker_ip__startswith='10.')
+        .exclude(attacker_ip__startswith='172.16.')
+        .values('attacker_ip', 'sensor')
+        .annotate(count=Count('id'), last_seen=Max('timestamp'))
+        .order_by('-count')[:200]
+    )
+    geos = {g.attacker_ip: g for g in AttackerGeo.objects.all()}
+    data = []
+    for r in rows:
+        g = geos.get(r['attacker_ip'])
+        if g and g.latitude is not None and g.longitude is not None:
+            data.append({
+                'ip': r['attacker_ip'],
+                'lat': g.latitude,
+                'lon': g.longitude,
+                'count': r['count'],
+                'city': g.city,
+                'country': g.country,
+                'country_code': g.country_code,
+                'isp': g.isp,
+                'sensor': r['sensor'],
+                'last_seen': r['last_seen'].strftime('%Y-%m-%d %H:%M:%S'),
+            })
+    return JsonResponse({'origins': data})
 
 # ── Full attack log (paginated + filterable) ──
 @login_required
@@ -305,6 +402,28 @@ def attacker_detail(request, ip):
         'page': page,
     }
     return render(request, 'detector/attacker_detail.html', context)
+
+# ── Threat map (attack origins) ──
+@login_required
+def threat_map(request):
+    """Full-page geolocation view of attack origins."""
+    geo_rows = (
+        AttackerGeo.objects.filter(lookup_failed=False,
+                                   latitude__isnull=False)
+        .order_by('country_code')
+    )
+    by_country = (
+        AttackerGeo.objects.filter(lookup_failed=False)
+        .values('country', 'country_code')
+        .annotate(attackers=Count('id'))
+        .order_by('-attackers')[:10]
+    )
+    context = {
+        'geo_rows': geo_rows,
+        'by_country': by_country,
+        'geo_count': geo_rows.count(),
+    }
+    return render(request, 'detector/map.html', context)
 
 # ── Reports / export center ──
 @login_required

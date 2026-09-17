@@ -1,0 +1,138 @@
+{% extends "detector/base.html" %}
+{% block title %}Threat Map — Hive Sentinel{% endblock %}
+
+{% block head_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  .map-shell { padding: 0 !important; overflow: hidden; }
+  #threatMap { height: 72vh; min-height: 480px; background: #0a0a0a; }
+  .leaflet-container { background: #0a0a0a; font-family: var(--mono); }
+  .leaflet-popup-content-wrapper, .leaflet-popup-tip {
+    background: #141414; color: #d4d4d4; border: 1px solid #2a2a2a;
+    border-radius: 8px; box-shadow: 0 12px 30px rgba(0,0,0,.6);
+  }
+  .leaflet-popup-content { font-family: var(--mono); font-size: 11px; line-height: 1.7; }
+  .pop-title { color: #4ade80; font-weight: 700; }
+  .pop-row { color: #8a8a8a; }
+  .pop-row b { color: #d4d4d4; font-weight: 600; }
+  .leaflet-control-zoom a {
+    background: #141414 !important; color: #d4d4d4 !important;
+    border-color: #2a2a2a !important;
+  }
+  .leaflet-control-zoom a:hover { background: #1e1e1e !important; }
+  .leaflet-control-attribution { background: rgba(10,10,10,.8) !important; color: #565656 !important; }
+  .leaflet-control-attribution a { color: #565656 !important; }
+
+  .legend {
+    position: absolute; bottom: 24px; right: 24px; z-index: 1000;
+    background: rgba(10,10,10,.9); border: 1px solid #1e1e1e; border-radius: 8px;
+    padding: 12px 14px; font-size: 10px; color: #8a8a8a; line-height: 2;
+  }
+  .legend .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; vertical-align: -1px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;flex-wrap:wrap;gap:10px">
+  <div>
+    <h2 class="page-title">Threat Map</h2>
+    <div class="subtitle">Geolocated attack origins — {{ geo_count }} resolved attackers</div>
+  </div>
+  <div class="status-line" style="margin:0">
+    <span class="live">SOURCE: ip-api.com</span>
+    <span class="sep">|</span>
+    <span>CACHED PER-IP</span>
+  </div>
+</div>
+
+<div class="card map-shell">
+  <div id="threatMap"></div>
+  <div class="legend">
+    <div><span class="swatch" style="background:#4ade80"></span>1–4 attacks</div>
+    <div><span class="swatch" style="background:#fbbf24"></span>5–19 attacks</div>
+    <div><span class="swatch" style="background:#ef4444"></span>20+ attacks</div>
+  </div>
+</div>
+
+<div class="grid-2">
+  <div class="card">
+    <h3><span class="gold">TOP</span> ATTACKER COUNTRIES</h3>
+    <table>
+      <thead><tr><th>Country</th><th>Unique Attackers</th></tr></thead>
+      <tbody>
+        {% for c in by_country %}
+        <tr>
+          <td>{{ c.country }} <span style="color:var(--dim)">({{ c.country_code }})</span></td>
+          <td class="tabular">{{ c.attackers }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="2"><span class="empty">▸ No geolocated attackers yet — needs public-IP events (VPS sensor).</span></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card">
+    <h3><span class="gold">RESOLVED</span> ATTACKER LOCATIONS</h3>
+    <table>
+      <thead><tr><th>IP</th><th>City</th><th>Country</th><th>ISP</th></tr></thead>
+      <tbody>
+        {% for g in geo_rows|slice:":15" %}
+        <tr>
+          <td><a class="link" href="{% url 'attacker_detail' g.attacker_ip %}">{{ g.attacker_ip }}</a></td>
+          <td>{{ g.city|default:"—" }}</td>
+          <td>{{ g.country }} <span style="color:var(--dim)">({{ g.country_code }})</span></td>
+          <td class="payload" style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ g.isp|default:"—" }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4"><span class="empty">▸ No resolved locations yet.</span></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+  const map = L.map('threatMap', { zoomControl: true, worldCopyJump: true })
+    .setView([20, 10], 2);
+
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; OpenStreetMap &copy; CARTO',
+    subdomains: 'abcd', maxZoom: 18,
+  }).addTo(map);
+
+  function colorFor(n) {
+    if (n >= 20) return '#ef4444';
+    if (n >= 5)  return '#fbbf24';
+    return '#4ade80';
+  }
+
+  fetch('/api/geo/')
+    .then(r => { if (!r.ok) throw 0; return r.json(); })
+    .then(({ origins }) => {
+      origins.forEach(o => {
+        const marker = L.circleMarker([o.lat, o.lon], {
+          radius: Math.min(6 + o.count * .6, 16),
+          color: colorFor(o.count),
+          weight: 1.5,
+          fillColor: colorFor(o.count),
+          fillOpacity: .45,
+        }).addTo(map);
+        marker.bindPopup(
+          `<span class="pop-title">${o.ip}</span><br>` +
+          `<span class="pop-row"><b>${o.city || '?'}</b>, ${o.country} (${o.country_code})</span><br>` +
+          `<span class="pop-row">ISP: <b>${(o.isp || '?').substring(0, 28)}</b></span><br>` +
+          `<span class="pop-row">Attacks: <b style="color:${colorFor(o.count)}">${o.count}</b></span><br>` +
+          `<span class="pop-row">Sensor: <b>${o.sensor}</b> · Last: ${o.last_seen}</span>`
+        );
+      });
+      if (!origins.length) {
+        document.querySelector('.legend').insertAdjacentHTML('afterbegin',
+          '<div style="color:#f87171">NO GEO DATA YET</div>');
+      }
+    })
+    .catch(() => {});
+</script>
+{% endblock %}

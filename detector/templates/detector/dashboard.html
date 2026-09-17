@@ -2,6 +2,23 @@
 {% load severity %}
 {% block title %}Dashboard — Hive Sentinel{% endblock %}
 
+{% block head_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  .map-shell { padding: 0 !important; overflow: hidden; }
+  #miniMap { height: 380px; background: #0a0a0a; }
+  .leaflet-container { background: #0a0a0a; font-family: var(--mono); }
+  .leaflet-popup-content-wrapper, .leaflet-popup-tip {
+    background: #141414; color: #d4d4d4; border: 1px solid #2a2a2a;
+    border-radius: 8px;
+  }
+  .leaflet-popup-content { font-family: var(--mono); font-size: 11px; line-height: 1.7; }
+  .leaflet-control-zoom a { background: #141414 !important; color: #d4d4d4 !important; border-color: #2a2a2a !important; }
+  .leaflet-control-attribution { background: rgba(10,10,10,.8) !important; color: #565656 !important; }
+  .leaflet-control-attribution a { color: #565656 !important; }
+</style>
+{% endblock %}
+
 {% block content %}
 <!-- Alert banner (hidden; alert badge pulses on new attack) -->
 <div class="alert-banner" id="alertBanner">
@@ -48,6 +65,17 @@
 <div class="card">
   <h3><span class="gold">ACTIVITY</span> — LAST 24 HOURS</h3>
   <canvas id="timeChart" height="90"></canvas>
+</div>
+
+<!-- Attack origins (mini map) -->
+<div class="card map-shell">
+  <div class="console-bar">
+    <span class="rec">●</span>
+    ATTACK ORIGINS — GEOLocated
+    <span style="flex:1"></span>
+    <a href="{% url 'threat_map' %}" class="link" style="font-size:10px;letter-spacing:.14em">FULL MAP →</a>
+  </div>
+  <div id="miniMap"></div>
 </div>
 
 <div class="grid-2">
@@ -127,7 +155,37 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
+  // ── Mini threat map ──
+  const miniMap = L.map('miniMap', { zoomControl: true }).setView([20, 10], 2);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; OpenStreetMap &copy; CARTO',
+    subdomains: 'abcd', maxZoom: 18,
+  }).addTo(miniMap);
+  const geoLayer = L.layerGroup().addTo(miniMap);
+
+  function miniMapColor(n) { return n >= 20 ? '#ef4444' : (n >= 5 ? '#fbbf24' : '#4ade80'); }
+
+  async function refreshGeo() {
+    try {
+      const r = await fetch('/api/geo/');
+      if (!r.ok) return;
+      const { origins } = await r.json();
+      geoLayer.clearLayers();
+      origins.forEach(o => {
+        L.circleMarker([o.lat, o.lon], {
+          radius: Math.min(5 + o.count * .5, 14),
+          color: miniMapColor(o.count), weight: 1.5,
+          fillColor: miniMapColor(o.count), fillOpacity: .45,
+        })
+        .bindPopup(`<b style="color:#4ade80">${o.ip}</b><br>${o.city || '?'}, ${o.country}<br>Attacks: ${o.count}`)
+        .addTo(geoLayer);
+      });
+    } catch (e) { /* non-fatal */ }
+  }
+  refreshGeo();
+
   // ── Terminal palette ──
   const DARK = '#d4d4d4', MUTE = '#565656', GRID = 'rgba(148,163,184,0.07)';
   const PALETTE = ['#f87171','#fb923c','#22d3ee','#4ade80','#fbbf24','#a78bfa','#34d399'];
@@ -358,6 +416,8 @@
       if (q) row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
       table.insertBefore(row, table.firstChild);
       if (table.rows.length > 60) table.deleteRow(table.rows.length - 1);
+
+      refreshGeo();  // new attack — refresh map markers
     }
   }, 10000);
 </script>

@@ -22,7 +22,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.core.cache import cache
 
-from .models import AttackLog
+from .models import AttackLog, AttackerGeo
 
 VALID_IP = "192.0.2.10"        # TEST-NET-1, never routed publicly
 EVENT = {
@@ -163,6 +163,112 @@ class IngestEndpointTests(TestCase):
             self.assertEqual(self.post_event().status_code, 201)
         resp = self.post_event()
         self.assertEqual(resp.status_code, 429)
+
+
+@override_settings(HONEYPOT_API_KEY="test-key")
+class SensorAndGeoTests(TestCase):
+    """Sensor tagging + geo enrichment + /api/geo/ + /map/."""
+
+    def setUp(self):
+        self.headers = {"HTTP_X_API_KEY": "test-key"}
+        self.ingest_url = reverse("receive_attack")
+        self.user = User.objects.create_user(username="ops", password="pass")
+        cache.clear()
+
+    def post_event(self, data):
+        return self.client.post(self.ingest_url, data=json.dumps(data),
+                                content_type="application/json", **self.headers)
+
+    # ── sensor tagging ──
+    def test_vps_sensor_tagged(self):
+        resp = self.post_event({**EVENT, "sensor": "vps-sensor",
+                                "attacker_ip": "203.0.113.7"})
+        self.assertEqual(resp.status_code, 201)
+        self.assertEqual(AttackLog.objects.get().sensor, "vps-sensor")
+
+    def test_default_sensor_is_esp32_lan(self):
+        resp = self.post_event(EVENT)
+        self.assertEqual(resp.status_code, 201)
+        self.assertEqual(AttackLog.objects.get().sensor, "esp32-lan")
+
+    def test_unknown_sensor_rejected(self):
+        resp = self.post_event({**EVENT, "sensor": "evil-sensor"})
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(AttackLog.objects.count(), 0)
+
+    # ── geo enrichment: private IPs never trigger lookups ──
+    def test_private_ip_marked_failed_no_geo_row_pollution(self):
+        with mock.patch("detector.views.lookup_geo") as m:
+            resp = self.post_event(EVENT)  # 192.0.2.x
+            self.assertEqual(resp.status_code, 201)
+        # 192.0.2.x is TEST-NET (not private) — the view only geo-enriches
+        # vps-sensor events; esp32-lan skips lookups entirely.
+        m.assert_not_called()
+
+    def test_private_ip_geo_returns_none_and_is_cached(self):
+        from detector.views import lookup_geo
+        self.assertIsNone(lookup_geo("192.168.1.50"))
+        self.assertIsNone(lookup_geo("127.0.0.1"))
+        self.assertIsNone(lookup_geo("10.0.0.5"))
+        # marked lookup_failed → never retried
+        self.assertTrue(AttackerGeo.objects.get(attacker_ip="192.168.1.50").lookup_failed)
+        self.assertEqual(AttackerGeo.objects.count(), 3)
+
+    def test_public_ip_lookup_success(self):
+        from detector.views import lookup_geo
+        fake = {"status": "success", "country": "Brazil", "countryCode": "BR",
+                "city": "Sao Paulo", "lat": -23.55, "lon": -46.63, "isp": "Telecom Ltd"}
+        with mock.patch("urllib.request.urlopen") as m:
+            m.return_value.__enter__.return_value.read.return_value = json.dumps(fake).encode()
+            geo = lookup_geo("200.147.67.142")
+        self.assertIsNotNone(geo)
+        self.assertEqual(geo.country_code, "BR")
+        self.assertEqual(geo.city, "Sao Paulo")
+        self.assertAlmostEqual(geo.latitude, -23.55)
+        row = AttackerGeo.objects.get(attacker_ip="200.147.67.142")
+        self.assertFalse(row.lookup_failed)
+
+    def test_lookup_failure_not_marked_permanent(self):
+        from detector.views import lookup_geo
+        with mock.patch("urllib.request.urlopen", side_effect=Exception("boom")):
+            self.assertIsNone(lookup_geo("8.8.8.8"))
+        row = AttackerGeo.objects.filter(attacker_ip="8.8.8.8").first()
+        # transient error → no row created, retriable later
+        self.assertIsNone(row)
+
+    # ── /api/geo/ ──
+    def test_geo_api_requires_login(self):
+        resp = self.client.get(reverse("geo_api"))
+        self.assertEqual(resp.status_code, 302)
+
+    def test_geo_api_shape(self):
+        AttackLog.objects.create(attacker_ip="200.147.67.142", port=23,
+                                 attack_type="brute_force", sensor="vps-sensor")
+        AttackerGeo.objects.create(attacker_ip="200.147.67.142",
+                                   country="Brazil", country_code="BR",
+                                   city="Sao Paulo", latitude=-23.55,
+                                   longitude=-46.63, isp="Telecom Ltd")
+        self.client.force_login(self.user)
+        resp = self.client.get(reverse("geo_api"))
+        self.assertEqual(resp.status_code, 200)
+        origins = resp.json()["origins"]
+        self.assertEqual(len(origins), 1)
+        o = origins[0]
+        self.assertEqual(o["ip"], "200.147.67.142")
+        self.assertEqual(o["country_code"], "BR")
+        self.assertEqual(o["count"], 1)
+        self.assertEqual(o["sensor"], "vps-sensor")
+
+    # ── /map/ page ──
+    def test_map_page_renders(self):
+        self.client.force_login(self.user)
+        resp = self.client.get(reverse("threat_map"))
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "threatMap")
+
+    def test_map_page_requires_login(self):
+        resp = self.client.get(reverse("threat_map"))
+        self.assertEqual(resp.status_code, 302)
 
 
 @override_settings(HONEYPOT_API_KEY="test-key")
