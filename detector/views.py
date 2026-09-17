@@ -180,6 +180,8 @@ def stats_api(request):
                    .annotate(count=Count('attack_type')).order_by('-count'))
     by_port = list(AttackLog.objects.values('port')
                    .annotate(count=Count('port')).order_by('-count')[:5])
+    top_ip = (AttackLog.objects.values('attacker_ip')
+              .annotate(count=Count('attacker_ip')).order_by('-count').first())
     banned = list(
         AttackLog.objects.filter(attack_type='ip_blocked')
         .values('attacker_ip')
@@ -194,6 +196,7 @@ def stats_api(request):
         'unique_ips': unique_ips,
         'by_type': by_type,
         'by_port': by_port,
+        'top_ip': top_ip,
         'banned': banned,
     })
 

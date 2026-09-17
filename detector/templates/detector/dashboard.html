@@ -1,41 +1,46 @@
 {% extends "detector/base.html" %}
+{% load severity %}
 {% block title %}Dashboard — Hive Sentinel{% endblock %}
 
 {% block content %}
-<!-- Alert Banner -->
+<!-- Alert banner (hidden; alert badge pulses on new attack) -->
 <div class="alert-banner" id="alertBanner">
   <b>▲ INTRUSION DETECTED</b>
-  <span id="alertDetail" style="color:#e2e8f0"></span>
+  <span id="alertDetail" style="color:#d4d4d4"></span>
 </div>
 
-<!-- Sentry status -->
+<!-- Sentry status (CLI style) -->
 <div class="status-line">
-  <span class="live">● SENTRY ONLINE</span>
+  <span class="live">monitor --live --interval=10s</span>
   <span class="sep">|</span>
-  <span>HONEYPOT BOARD AUTO-REFRESHING EVERY 10s</span>
+  <span>FEED: <span class="live">CONNECTED</span></span>
+  <span style="flex:1"></span>
+  <span class="alert-badge" id="alertBadge"><span class="dot"></span><span id="alertBadgeText">NEW THREAT</span></span>
   {% if latest %}
   <span class="sep">|</span>
-  <span>LAST DETECTED: <span style="color:#67e8f9">{{ latest.attack_type|upper }}</span> FROM {{ latest.attacker_ip }} :{{ latest.port }}</span>
+  <span>LAST: <span style="color:#4ade80">{{ latest.attack_type|upper }}</span> {{ latest.attacker_ip }}:{{ latest.port }}</span>
   {% endif %}
 </div>
 
-<!-- Stats -->
+<!-- Stat bar -->
 <div class="stats-grid">
   <div class="stat-card">
     <div class="number" id="totalNum">{{ total }}</div>
     <div class="label">Total Attacks</div>
   </div>
+  <div class="stat-card red">
+    <div class="number" id="commonTypeNum">{% if by_type %}{{ by_type.0.count }}{% else %}0{% endif %}</div>
+    <div class="label">Most Common Type</div>
+    <div class="sub" id="commonTypeSub">{% if by_type %}{{ by_type.0.attack_type }}{% else %}—{% endif %}</div>
+  </div>
+  <div class="stat-card yellow">
+    <div class="number" id="topIpNum">{% if by_ip %}{{ by_ip.0.count }}{% else %}0{% endif %}</div>
+    <div class="label">Most Active IP</div>
+    <div class="sub" id="topIpSub">{% if by_ip %}{{ by_ip.0.attacker_ip }}{% else %}—{% endif %}</div>
+  </div>
   <div class="stat-card green">
     <div class="number" id="uniqueNum">{{ unique_ips }}</div>
     <div class="label">Unique Attackers</div>
-  </div>
-  <div id="typeCards" style="display:contents">
-  {% for t in by_type %}
-  <div class="stat-card {% if t.attack_type == 'port_scan' %}red{% elif t.attack_type == 'brute_force' %}yellow{% elif t.attack_type == 'ip_blocked' %}purple{% else %}green{% endif %}">
-    <div class="number">{{ t.count }}</div>
-    <div class="label">{{ t.attack_type|title }}</div>
-  </div>
-  {% endfor %}
   </div>
 </div>
 
@@ -88,7 +93,7 @@
     <span class="rec">●</span>
     LIVE FEED — ATTACK LOG
     <span style="flex:1"></span>
-    <input type="text" id="searchInput" class="field" style="min-width:190px;font-size:11px;padding:6px 10px" placeholder="FILTER IP / TYPE / PAYLOAD…">
+    <input type="text" id="searchInput" class="field" style="min-width:200px;font-size:11px;padding:6px 10px" placeholder="grep ip | type | payload…">
   </div>
   <table>
     <thead>
@@ -103,7 +108,7 @@
     </thead>
     <tbody id="attackTable">
       {% for log in logs %}
-      <tr>
+      <tr class="{{ log.attack_type|severity }}">
         <td>{{ log.id }}</td>
         <td><a class="link" href="{% url 'attacker_detail' log.attacker_ip %}">{{ log.attacker_ip }}</a></td>
         <td>{{ log.port }}</td>
@@ -123,26 +128,27 @@
 
 {% block scripts %}
 <script>
-  // ── Shared chart palette (matches base.html design tokens) ──
-  const DARK = '#e2e8f0', MUTE = '#64748b', GRID = 'rgba(148,163,184,0.08)';
-  const PALETTE = ['#f87171','#fb923c','#60a5fa','#34d399','#a78bfa','#fbbf24','#22d3ee'];
+  // ── Terminal palette ──
+  const DARK = '#d4d4d4', MUTE = '#565656', GRID = 'rgba(148,163,184,0.07)';
+  const PALETTE = ['#f87171','#fb923c','#22d3ee','#4ade80','#fbbf24','#a78bfa','#34d399'];
 
   Chart.defaults.font.family = "'JetBrains Mono', ui-monospace, monospace";
   Chart.defaults.color = MUTE;
 
   const TOOLTIP = {
-    backgroundColor: '#0d1526',
-    borderColor: 'rgba(148,163,184,0.25)',
+    backgroundColor: '#141414',
+    borderColor: '#2a2a2a',
     borderWidth: 1,
-    titleColor: '#e2e8f0',
-    bodyColor: '#94a3b8',
+    titleColor: '#d4d4d4',
+    bodyColor: '#8a8a8a',
     padding: 10,
-    cornerRadius: 8,
+    cornerRadius: 6,
     displayColors: false
   };
 
-  // ── Count-up animation for the headline numbers ──
+  // ── Count-up animation ──
   function countUp(el, to) {
+    if (!el) return;
     const from = parseInt(el.dataset.v || '0', 10);
     if (from === to) { el.textContent = to; return; }
     el.dataset.v = to;
@@ -154,28 +160,40 @@
     })(t0);
   }
 
-  // ── Attacks over last 24 hours ──
+  // ── severity tiers (mirrors detector/templatetags/severity.py) ──
+  const SEV = {
+    ip_blocked: 'sev-crit',
+    port_scan: 'sev-high', brute_force: 'sev-high',
+    http_brute_force: 'sev-med', admin_panel_access: 'sev-med',
+    http_scan: 'sev-low', connection_attempt: 'sev-low'
+  };
+
+  // ── Attacks over last 24 hours (green area-line, Grafana-ish) ──
   new Chart(document.getElementById('timeChart'), {
-    type: 'bar',
+    type: 'line',
     data: {
       labels: {{ time_labels|safe }},
       datasets: [{
         label: 'Attacks',
         data: {{ hourly }},
+        fill: true,
         backgroundColor: (ctx) => {
           const g = ctx.chart.ctx.createLinearGradient(0, 0, 0, ctx.chart.height);
-          g.addColorStop(0, 'rgba(34, 211, 238, 0.75)');
-          g.addColorStop(1, 'rgba(34, 211, 238, 0.12)');
+          g.addColorStop(0, 'rgba(74, 222, 128, 0.22)');
+          g.addColorStop(1, 'rgba(74, 222, 128, 0.01)');
           return g;
         },
-        borderColor: '#22d3ee',
-        borderWidth: 1.5,
-        borderRadius: 5,
-        borderSkipped: 'bottom'
+        borderColor: '#4ade80',
+        borderWidth: 1.6,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        pointHoverBackgroundColor: '#86efac',
+        tension: 0.35
       }]
     },
     options: {
       plugins: { legend: { display: false }, tooltip: TOOLTIP },
+      interaction: { mode: 'index', intersect: false },
       scales: {
         y: { ticks: { color: MUTE }, grid: { color: GRID }, beginAtZero: true, border: { display: false } },
         x: { ticks: { color: MUTE, maxTicksLimit: 12 }, grid: { display: false }, border: { display: false } }
@@ -192,20 +210,20 @@
         data: [{% for t in by_type %}{{ t.count }}{% if not forloop.last %},{% endif %}{% endfor %}],
         backgroundColor: PALETTE,
         borderWidth: 2,
-        borderColor: '#0d1526',
-        hoverOffset: 8
+        borderColor: '#111111',
+        hoverOffset: 7
       }]
     },
     options: {
       cutout: '62%',
       plugins: {
-        legend: { position: 'right', labels: { color: DARK, font: { size: 11 }, boxWidth: 12, boxHeight: 12, borderRadius: 3, useBorderRadius: true } },
+        legend: { position: 'right', labels: { color: DARK, font: { size: 10.5 }, boxWidth: 11, boxHeight: 11, borderRadius: 3, useBorderRadius: true } },
         tooltip: TOOLTIP
       }
     }
   });
 
-  // ── Top attacker IPs ──
+  // ── Top attacker IPs (horizontal red bars) ──
   new Chart(document.getElementById('ipChart'), {
     type: 'bar',
     data: {
@@ -213,11 +231,11 @@
       datasets: [{
         label: 'Attacks',
         data: [{% for i in by_ip %}{{ i.count }}{% if not forloop.last %},{% endif %}{% endfor %}],
-        backgroundColor: 'rgba(167, 139, 250, 0.55)',
-        borderColor: '#a78bfa',
-        borderWidth: 1.5,
-        borderRadius: 5,
-        borderSkipped: 'bottom'
+        backgroundColor: 'rgba(248, 113, 113, 0.45)',
+        borderColor: '#f87171',
+        borderWidth: 1.4,
+        borderRadius: 4,
+        borderSkipped: 'start'
       }]
     },
     options: {
@@ -230,7 +248,7 @@
     }
   });
 
-  // ── Top targeted ports ──
+  // ── Top targeted ports (green bars) ──
   const portChart = new Chart(document.getElementById('portChart'), {
     type: 'bar',
     data: {
@@ -238,10 +256,10 @@
       datasets: [{
         label: 'Attempts',
         data: [{% for p in by_port %}{{ p.count }}{% if not forloop.last %},{% endif %}{% endfor %}],
-        backgroundColor: 'rgba(52, 211, 153, 0.45)',
-        borderColor: '#34d399',
-        borderWidth: 1.5,
-        borderRadius: 5,
+        backgroundColor: 'rgba(74, 222, 128, 0.35)',
+        borderColor: '#4ade80',
+        borderWidth: 1.4,
+        borderRadius: 4,
         borderSkipped: 'bottom'
       }]
     },
@@ -262,12 +280,31 @@
     });
   });
 
+  // ── Alert badge pulse ──
+  function triggerAlertBadge(text) {
+    const badge = document.getElementById('alertBadge');
+    document.getElementById('alertBadgeText').textContent = text;
+    badge.classList.remove('show');
+    void badge.offsetWidth;           // restart the pulse animation
+    badge.classList.add('show');
+    setTimeout(() => badge.classList.remove('show'), 6000);
+  }
+
   // ── Live refresh every 10 seconds ──
   let lastId = {{ logs.0.id|default:0 }};
 
   function updateStats(d) {
     countUp(document.getElementById('totalNum'), d.total);
     countUp(document.getElementById('uniqueNum'), d.unique_ips);
+
+    if (d.by_type && d.by_type.length) {
+      countUp(document.getElementById('commonTypeNum'), d.by_type[0].count);
+      document.getElementById('commonTypeSub').textContent = d.by_type[0].attack_type;
+    }
+    if (d.top_ip) {
+      countUp(document.getElementById('topIpNum'), d.top_ip.count);
+      document.getElementById('topIpSub').textContent = d.top_ip.attacker_ip;
+    }
 
     typeChart.data.labels = d.by_type.map(x => x.attack_type);
     typeChart.data.datasets[0].data = d.by_type.map(x => x.count);
@@ -276,14 +313,6 @@
     portChart.data.labels = d.by_port.map(x => String(x.port));
     portChart.data.datasets[0].data = d.by_port.map(x => x.count);
     portChart.update();
-
-    const colors = { port_scan: 'red', brute_force: 'yellow', ip_blocked: 'purple' };
-    document.getElementById('typeCards').innerHTML =
-      d.by_type.map(t =>
-        `<div class="stat-card ${colors[t.attack_type] || 'green'}">` +
-        `<div class="number">${t.count}</div>` +
-        `<div class="label">${t.attack_type.replace(/_/g, ' ')}</div></div>`
-      ).join('');
 
     const tb = document.getElementById('bannedBody');
     tb.innerHTML = d.banned.length
@@ -299,7 +328,6 @@
       fetch('/api/stats/')
     ]);
 
-    // Session expired / not logged in — go to the login page instead of failing silently
     if (!latestRes.ok || !statsRes.ok) {
       window.location.assign('/accounts/login/?next=/');
       return;
@@ -313,13 +341,11 @@
       const newAttack = data.attacks[0];
       lastId = newAttack.id;
 
-      document.getElementById('alertBanner').classList.add('show');
-      document.getElementById('alertDetail').textContent =
-        `${newAttack.attack_type} from ${newAttack.attacker_ip} on port ${newAttack.port}`;
+      triggerAlertBadge(`${newAttack.attack_type.toUpperCase()} · ${newAttack.attacker_ip}:${newAttack.port}`);
 
       const table = document.getElementById('attackTable');
       const row = document.createElement('tr');
-      row.className = 'row-new';
+      row.className = (SEV[newAttack.attack_type] || 'sev-low') + ' row-new';
       row.innerHTML = `
         <td>${newAttack.id}</td>
         <td><a class="link" href="/attackers/${newAttack.attacker_ip}/">${newAttack.attacker_ip}</a></td>
@@ -331,11 +357,7 @@
       const q = document.getElementById('searchInput').value.toLowerCase();
       if (q) row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
       table.insertBefore(row, table.firstChild);
-      if (table.rows.length > 60) table.deleteRow(table.rows.length - 1); // keep table bounded
-
-      setTimeout(() => {
-        document.getElementById('alertBanner').classList.remove('show');
-      }, 5000);
+      if (table.rows.length > 60) table.deleteRow(table.rows.length - 1);
     }
   }, 10000);
 </script>

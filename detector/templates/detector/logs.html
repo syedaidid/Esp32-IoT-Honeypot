@@ -1,4 +1,5 @@
 {% extends "detector/base.html" %}
+{% load severity %}
 {% block title %}Attack Log — Hive Sentinel{% endblock %}
 
 {% block content %}
@@ -21,7 +22,7 @@
     </select>
     <input type="number" name="port" value="{{ f.port }}" class="field" placeholder="Port" min="1" max="65535" style="width:90px">
     <input type="date" name="from" value="{{ f.from }}" class="field">
-    <span style="color:var(--dim);font-family:var(--font-mono);font-size:12px">to</span>
+    <span style="color:var(--dim);font-family:var(--mono);font-size:12px">to</span>
     <input type="date" name="to" value="{{ f.to }}" class="field">
     <button type="submit" class="btn">Filter</button>
     <a href="{% url 'attack_logs' %}" class="btn ghost">Reset</a>
@@ -42,7 +43,7 @@
     </thead>
     <tbody>
       {% for log in page.object_list %}
-      <tr>
+      <tr class="{{ log.attack_type|severity }}">
         <td class="tabular">{{ log.id }}</td>
         <td><a class="link" href="{% url 'attacker_detail' log.attacker_ip %}">{{ log.attacker_ip }}</a></td>
         <td class="tabular">{{ log.port }}</td>
