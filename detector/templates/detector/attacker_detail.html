@@ -1,5 +1,22 @@
 {% extends "detector/base.html" %}
+{% load severity %}
 {% block title %}Attacker {{ ip }} — Hive Sentinel{% endblock %}
+
+{% block head_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  #attackerMap { height: 300px; background: #0a0a0a; border-radius: 8px; }
+  .leaflet-container { background: #0a0a0a; font-family: var(--mono); }
+  .leaflet-popup-content-wrapper, .leaflet-popup-tip {
+    background: #141414; color: #d4d4d4; border: 1px solid #2a2a2a; border-radius: 8px;
+  }
+  .leaflet-popup-content { font-family: var(--mono); font-size: 11px; line-height: 1.7; }
+  .leaflet-control-zoom a { background: #141414 !important; color: #d4d4d4 !important; border-color: #2a2a2a !important; }
+  .leaflet-control-attribution { background: rgba(10,10,10,.8) !important; color: #565656 !important; }
+  .leaflet-control-attribution a { color: #565656 !important; }
+  .geoflag { font-size: 15px; margin-right: 6px; vertical-align: -1px; }
+</style>
+{% endblock %}
 
 {% block content %}
 <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;flex-wrap:wrap;gap:10px">
@@ -19,6 +36,31 @@
   <div class="stat-card red"><div class="number">{{ blocked_hits }}</div><div class="label">Blocked Events</div></div>
   <div class="stat-card yellow"><div class="number" style="font-size:19px">{{ first|date:"Y-m-d H:i" }}</div><div class="label">First Seen</div></div>
   <div class="stat-card"><div class="number" style="font-size:19px">{{ last|date:"Y-m-d H:i" }}</div><div class="label">Last Seen</div></div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin:24px 0">
+  <div class="card">
+    <h3><span class="gold">ORIGIN</span> — GEOINT</h3>
+    {% if has_location %}
+    <table>
+      <tbody>
+        <tr><td style="color:var(--dim)">Country</td><td><span class="geoflag" id="flagSpan"></span><b>{{ geo.country }}</b> ({{ geo.country_code }})</td></tr>
+        <tr><td style="color:var(--dim)">City</td><td>{{ geo.city|default:"—" }}</td></tr>
+        <tr><td style="color:var(--dim)">ISP / Carrier</td><td>{{ geo.isp|default:"—" }}</td></tr>
+        <tr><td style="color:var(--dim)">Coordinates</td><td class="tabular">{{ geo.latitude|stringformat:".4f" }}, {{ geo.longitude|stringformat:".4f" }}</td></tr>
+      </tbody>
+    </table>
+    {% else %}
+    <p class="empty">▸ Geolocation unavailable{% if geo and geo.lookup_failed %} — address is private/reserved or lookup failed{% endif %}.</p>
+    {% endif %}
+  </div>
+  <div class="card map-shell" style="padding:0">
+    {% if has_location %}
+    <div id="attackerMap"></div>
+    {% else %}
+    <div class="empty" style="height:300px;display:flex;align-items:center;justify-content:center">NO COORDINATES ON RECORD</div>
+    {% endif %}
+  </div>
 </div>
 
 <div class="card">
@@ -105,6 +147,48 @@
 {% endblock %}
 
 {% block scripts %}
+{% if has_location %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+  // ── Flag emoji from ISO country code ──
+  (function () {
+    const cc = '{{ geo.country_code|upper }}';
+    const el = document.getElementById('flagSpan');
+    if (el && cc && cc.length === 2) {
+      el.textContent = String.fromCodePoint(... [...cc].map(c => 127397 + c.charCodeAt(0)));
+    } else if (el) { el.remove(); }
+  })();
+
+  // ── Single-attacker origin map (tiles: CARTO dark → OSM fallback) ──
+  const LAT = {{ geo.latitude }}, LON = {{ geo.longitude }};
+  const aMap = L.map('attackerMap', { zoomControl: true, scrollWheelZoom: false }).setView([LAT, LON], 6);
+  const A_PROVIDERS = [
+    { url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', opts: { subdomains: 'abcd', maxZoom: 18 } },
+    { url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', opts: { maxZoom: 19 } },
+  ];
+  let aIdx = 0;
+  function loadATiles() {
+    const layer = L.tileLayer(A_PROVIDERS[aIdx].url, {
+      ...A_PROVIDERS[aIdx].opts,
+      attribution: '&copy; OpenStreetMap &copy; CARTO',
+    });
+    layer.on('tileerror', () => {
+      if (aIdx < A_PROVIDERS.length - 1) { aIdx += 1; aMap.removeLayer(layer); loadATiles(); }
+    });
+    layer.addTo(aMap);
+  }
+  loadATiles();
+
+  // Location pin + accuracy radius
+  L.circle([LAT, LON], { radius: 15000, color: '#f97316', weight: 1, fillColor: '#f97316', fillOpacity: 0.10 }).addTo(aMap);
+  L.circleMarker([LAT, LON], {
+    radius: 7, color: '#ef4444', weight: 2, fillColor: '#ef4444', fillOpacity: 0.85,
+  })
+  .bindPopup(`<b style="color:#f87171">{{ ip }}</b><br>{{ geo.city|default:"?" }}, {{ geo.country }}<br><span style="color:var(--dim)">hostile origin</span>`)
+  .openPopup()
+  .addTo(aMap);
+</script>
+{% endif %}
 {% if total %}
 <script>
   new Chart(document.getElementById('timeChart'), {

@@ -397,6 +397,10 @@ def attacker_detail(request, ip):
     paginator = Paginator(logs, 25)
     page = paginator.get_page(request.GET.get('page'))
 
+    geo = AttackerGeo.objects.filter(attacker_ip=ip).first()
+    has_location = bool(geo and not geo.lookup_failed
+                        and geo.latitude is not None and geo.longitude is not None)
+
     context = {
         'ip': ip,
         'total': total,
@@ -409,6 +413,8 @@ def attacker_detail(request, ip):
         'hourly': hourly,
         'time_labels': time_labels,
         'page': page,
+        'geo': geo,
+        'has_location': has_location,
     }
     return render(request, 'detector/attacker_detail.html', context)
 
