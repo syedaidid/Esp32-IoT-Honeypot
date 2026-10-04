@@ -52,6 +52,7 @@
     <div><span class="swatch" style="background:#22d3ee"></span>ESP32 (office LAN)</div>
     <div><span class="swatch" style="background:#f97316"></span>VPS (internet)</div>
     <div class="size-note">circle size = attack volume</div>
+    <div class="size-note" id="tileStatus">TILES: AUTO</div>
   </div>
 </div>
 
@@ -96,28 +97,44 @@
 {% block scripts %}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-  const map = L.map('threatMap', { zoomControl: true, worldCopyJump: true })
+  const map = L.map('threatMap', { zoomControl: true, worldCopyJump: true, maxZoom: 19 })
     .setView([20, 10], 2);
 
-  // ── Tiles with fallback (CARTO dark → OpenStreetMap) ──
-  const PROVIDERS = [
-    { url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', opts: { subdomains: 'abcd', maxZoom: 18 } },
-    { url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', opts: { maxZoom: 19 } },
+  // ── Tiles: resilient 4-provider chain + status + offline grid ──
+  const TILES = [
+    { name: 'CARTO',    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',                                     opts: { subdomains: 'abcd', maxZoom: 20 } },
+    { name: 'ESRI',     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', opts: { maxZoom: 19 } },
+    { name: 'OSM',      url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',                                                 opts: { maxZoom: 19 } },
+    { name: 'ESRI-SAT', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', opts: { maxZoom: 19 } },
   ];
-  let providerIdx = 0;
+  let tileIdx = 0, errCount = 0, gridShown = false;
+  function setTiles(name) { const el = document.getElementById('tileStatus'); if (el) el.textContent = 'TILES: ' + name; }
+  function noTiles() {
+    if (gridShown) return;
+    gridShown = true;
+    setTiles('OFFLINE GRID');
+    const grid = L.gridLayer({ tileSize: 256, maxZoom: 19 }).addTo(map);
+    grid.createTile = function (c) {
+      const t = document.createElement('canvas'); t.width = t.height = 256;
+      const g = t.getContext('2d');
+      g.fillStyle = '#0a0a0a'; g.fillRect(0, 0, 256, 256);
+      g.strokeStyle = 'rgba(148,163,184,0.12)'; g.strokeRect(.5, .5, 255, 255);
+      g.fillStyle = 'rgba(148,163,184,0.4)'; g.font = '10px monospace'; g.fillText('NO TILES (blocked?)', 12, 130);
+      return t;
+    };
+  }
   function loadTiles() {
-    const layer = L.tileLayer(PROVIDERS[providerIdx].url, {
-      ...PROVIDERS[providerIdx].opts,
-      attribution: '&copy; OpenStreetMap &copy; CARTO',
-    });
+    const p = TILES[tileIdx];
+    if (!p) return noTiles();
+    const layer = L.tileLayer(p.url, { ...p.opts, attribution: '&copy; OpenStreetMap &copy; CARTO &copy; Esri' });
     layer.on('tileerror', () => {
-      if (providerIdx < PROVIDERS.length - 1) {
-        providerIdx += 1;
-        map.removeLayer(layer);
-        loadTiles();
-      }
+      if (++errCount < 2) return;             // ignore isolated failures
+      errCount = 0;
+      if (tileIdx < TILES.length - 1) { tileIdx += 1; map.removeLayer(layer); loadTiles(); }
+      else noTiles();
     });
     layer.addTo(map);
+    setTiles(p.name);
   }
   loadTiles();
 
