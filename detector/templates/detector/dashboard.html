@@ -165,8 +165,8 @@
   const miniMap = L.map('miniMap', { zoomControl: true, maxZoom: 19 }).setView([20, 10], 2);
   // ── Tiles: resilient 4-provider chain + status + offline grid ──
   const TILES = [
-    { name: 'CARTO',    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',                                     opts: { subdomains: 'abcd', maxZoom: 20 } },
     { name: 'ESRI',     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', opts: { maxZoom: 19 } },
+    { name: 'CARTO',    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',                                     opts: { subdomains: 'abcd', maxZoom: 20 } },
     { name: 'OSM',      url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',                                                 opts: { maxZoom: 19 } },
     { name: 'ESRI-SAT', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', opts: { maxZoom: 19 } },
   ];
