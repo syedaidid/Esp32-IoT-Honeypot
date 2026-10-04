@@ -20,6 +20,12 @@
       <option value="{{ t }}" {% if f.type == t %}selected{% endif %}>{{ t }}</option>
       {% endfor %}
     </select>
+    <select name="sensor" class="field">
+      <option value="">All sensors</option>
+      {% for s in sensors %}
+      <option value="{{ s }}" {% if f.sensor == s %}selected{% endif %}>{{ s }}</option>
+      {% endfor %}
+    </select>
     <input type="number" name="port" value="{{ f.port }}" class="field" placeholder="Port" min="1" max="65535" style="width:90px">
     <input type="date" name="from" value="{{ f.from }}" class="field">
     <span style="color:var(--dim);font-family:var(--mono);font-size:12px">to</span>
@@ -35,6 +41,7 @@
       <tr>
         <th>#</th>
         <th>Attacker IP</th>
+        <th>Sensor</th>
         <th>Port</th>
         <th>Attack Type</th>
         <th>Payload</th>
@@ -46,13 +53,14 @@
       <tr class="{{ log.attack_type|severity }}">
         <td class="tabular">{{ log.id }}</td>
         <td><a class="link" href="{% url 'attacker_detail' log.attacker_ip %}">{{ log.attacker_ip }}</a></td>
+        <td><span class="badge sensor-{{ log.sensor }}">{{ log.sensor }}</span></td>
         <td class="tabular">{{ log.port }}</td>
         <td><span class="badge {{ log.attack_type }}">{{ log.attack_type }}</span></td>
         <td class="payload" style="max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ log.payload }}</td>
         <td class="tabular">{{ log.timestamp }}</td>
       </tr>
       {% empty %}
-      <tr><td colspan="6" class="empty">▸ No attack events match your filters.</td></tr>
+      <tr><td colspan="7" class="empty">▸ No attack events match your filters.</td></tr>
       {% endfor %}
     </tbody>
   </table>
@@ -60,17 +68,17 @@
   {% if page.paginator.num_pages > 1 %}
   <div class="pagination">
     {% if page.has_previous %}
-    <a href="?page={{ page.previous_page_number }}&q={{ f.q }}&type={{ f.type }}&port={{ f.port }}&from={{ f.from }}&to={{ f.to }}">← Prev</a>
+    <a href="?page={{ page.previous_page_number }}&q={{ f.q }}&type={{ f.type }}&sensor={{ f.sensor }}&port={{ f.port }}&from={{ f.from }}&to={{ f.to }}">← Prev</a>
     {% endif %}
     {% for n in page.paginator.page_range %}
       {% if n == page.number %}
       <span class="current">{{ n }}</span>
       {% elif n >= page.number|add:"-3" and n <= page.number|add:"3" %}
-      <a href="?page={{ n }}&q={{ f.q }}&type={{ f.type }}&port={{ f.port }}&from={{ f.from }}&to={{ f.to }}">{{ n }}</a>
+      <a href="?page={{ n }}&q={{ f.q }}&type={{ f.type }}&sensor={{ f.sensor }}&port={{ f.port }}&from={{ f.from }}&to={{ f.to }}">{{ n }}</a>
       {% endif %}
     {% endfor %}
     {% if page.has_next %}
-    <a href="?page={{ page.next_page_number }}&q={{ f.q }}&type={{ f.type }}&port={{ f.port }}&from={{ f.from }}&to={{ f.to }}">Next →</a>
+    <a href="?page={{ page.next_page_number }}&q={{ f.q }}&type={{ f.type }}&sensor={{ f.sensor }}&port={{ f.port }}&from={{ f.from }}&to={{ f.to }}">Next →</a>
     {% endif %}
   </div>
   {% endif %}

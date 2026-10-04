@@ -229,6 +229,7 @@ def latest_attacks(request):
         'attacker_ip': log.attacker_ip,
         'port': log.port,
         'attack_type': log.attack_type,
+        'sensor': log.sensor,
         'payload': log.payload,
         'timestamp': log.timestamp.strftime('%Y-%m-%d %H:%M:%S')
     } for log in logs]
@@ -305,6 +306,7 @@ def attack_logs(request):
     q = request.GET.get('q', '').strip()
     atype = request.GET.get('type', '').strip()
     port = request.GET.get('port', '').strip()
+    sensor = request.GET.get('sensor', '').strip()
     date_from = request.GET.get('from', '').strip()
     date_to = request.GET.get('to', '').strip()
 
@@ -312,6 +314,8 @@ def attack_logs(request):
         qs = qs.filter(Q(attacker_ip__icontains=q) | Q(payload__icontains=q))
     if atype:
         qs = qs.filter(attack_type=atype)
+    if sensor:
+        qs = qs.filter(sensor=sensor)
     if port:
         try:
             qs = qs.filter(port=int(port))
@@ -327,11 +331,13 @@ def attack_logs(request):
     page = paginator.get_page(request.GET.get('page'))
 
     types = AttackLog.objects.values_list('attack_type', flat=True).distinct().order_by('attack_type')
+    sensors = AttackLog.objects.values_list('sensor', flat=True).distinct().order_by('sensor')
 
     context = {
         'page': page,
         'types': types,
-        'f': {'q': q, 'type': atype, 'port': port, 'from': date_from, 'to': date_to},
+        'sensors': sensors,
+        'f': {'q': q, 'type': atype, 'port': port, 'sensor': sensor, 'from': date_from, 'to': date_to},
     }
     return render(request, 'detector/logs.html', context)
 
@@ -374,6 +380,8 @@ def attacker_detail(request, ip):
         c=Count('attack_type')).order_by('-c'))
     by_port = list(logs.values('port').annotate(
         c=Count('port')).order_by('-c'))
+    by_sensor = list(logs.values('sensor').annotate(
+        c=Count('sensor')).order_by('-c'))
     blocked_hits = logs.filter(attack_type='ip_blocked').count()
 
     # Hourly activity for this IP over the last 24h
@@ -396,6 +404,7 @@ def attacker_detail(request, ip):
         'last': last,
         'by_type': by_type,
         'by_port': by_port,
+        'by_sensor': by_sensor,
         'blocked_hits': blocked_hits,
         'hourly': hourly,
         'time_labels': time_labels,
@@ -445,9 +454,9 @@ def export_csv(request):
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="honeypot_attack_log.csv"'
     writer = csv.writer(response)
-    writer.writerow(['id', 'attacker_ip', 'port', 'attack_type', 'payload', 'timestamp'])
+    writer.writerow(['id', 'attacker_ip', 'sensor', 'port', 'attack_type', 'payload', 'timestamp'])
     for log in AttackLog.objects.all().order_by('-timestamp'):
-        writer.writerow([log.id, log.attacker_ip, log.port, log.attack_type,
+        writer.writerow([log.id, log.attacker_ip, log.sensor, log.port, log.attack_type,
                          (log.payload or '').replace('\r', ' ').replace('\n', ' '),
                          log.timestamp.strftime('%Y-%m-%d %H:%M:%S')])
     return response

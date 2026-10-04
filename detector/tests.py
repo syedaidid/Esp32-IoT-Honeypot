@@ -466,7 +466,7 @@ class ExportTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp["Content-Type"], "text/csv")
         lines = resp.content.decode().splitlines()
-        self.assertEqual(lines[0], "id,attacker_ip,port,attack_type,payload,timestamp")
+        self.assertEqual(lines[0], "id,attacker_ip,sensor,port,attack_type,payload,timestamp")
         self.assertEqual(len(lines), 2)  # header + one row
         self.assertIn("198.51.100.7", lines[1])
         self.assertNotIn("\n", lines[1])  # newlines sanitised

@@ -128,6 +128,7 @@
       <tr>
         <th>#</th>
         <th>Attacker IP</th>
+        <th>Sensor</th>
         <th>Port</th>
         <th>Attack Type</th>
         <th>Payload</th>
@@ -139,6 +140,7 @@
       <tr class="{{ log.attack_type|severity }}">
         <td>{{ log.id }}</td>
         <td><a class="link" href="{% url 'attacker_detail' log.attacker_ip %}">{{ log.attacker_ip }}</a></td>
+        <td><span class="badge sensor-{{ log.sensor }}">{{ log.sensor }}</span></td>
         <td>{{ log.port }}</td>
         <td><span class="badge {{ log.attack_type }}">{{ log.attack_type }}</span></td>
         <td class="payload" style="max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ log.payload }}</td>
@@ -159,13 +161,29 @@
 <script>
   // ── Mini threat map ──
   const miniMap = L.map('miniMap', { zoomControl: true }).setView([20, 10], 2);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; OpenStreetMap &copy; CARTO',
-    subdomains: 'abcd', maxZoom: 18,
-  }).addTo(miniMap);
+  const MM_PROVIDERS = [
+    { url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', opts: { subdomains: 'abcd', maxZoom: 18 } },
+    { url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', opts: { maxZoom: 19 } },
+  ];
+  let mmIdx = 0;
+  function loadMiniTiles() {
+    const layer = L.tileLayer(MM_PROVIDERS[mmIdx].url, {
+      ...MM_PROVIDERS[mmIdx].opts,
+      attribution: '&copy; OpenStreetMap &copy; CARTO',
+    });
+    layer.on('tileerror', () => {
+      if (mmIdx < MM_PROVIDERS.length - 1) {
+        mmIdx += 1;
+        miniMap.removeLayer(layer);
+        loadMiniTiles();
+      }
+    });
+    layer.addTo(miniMap);
+  }
+  loadMiniTiles();
   const geoLayer = L.layerGroup().addTo(miniMap);
 
-  function miniMapColor(n) { return n >= 20 ? '#ef4444' : (n >= 5 ? '#fbbf24' : '#4ade80'); }
+  function miniMapColor(s) { return s === 'esp32-lan' ? '#22d3ee' : (s === 'vps-sensor' ? '#f97316' : '#94a3b8'); }
 
   async function refreshGeo() {
     try {
@@ -174,12 +192,13 @@
       const { origins } = await r.json();
       geoLayer.clearLayers();
       origins.forEach(o => {
+        const c = miniMapColor(o.sensor);
         L.circleMarker([o.lat, o.lon], {
           radius: Math.min(5 + o.count * .5, 14),
-          color: miniMapColor(o.count), weight: 1.5,
-          fillColor: miniMapColor(o.count), fillOpacity: .45,
+          color: c, weight: 1.5,
+          fillColor: c, fillOpacity: .45,
         })
-        .bindPopup(`<b style="color:#4ade80">${o.ip}</b><br>${o.city || '?'}, ${o.country}<br>Attacks: ${o.count}`)
+        .bindPopup(`<b style="color:#4ade80">${o.ip}</b><br>${o.city || '?'}, ${o.country}<br>Attacks: ${o.count}<br>Sensor: ${o.sensor}`)
         .addTo(geoLayer);
       });
     } catch (e) { /* non-fatal */ }
@@ -407,6 +426,7 @@
       row.innerHTML = `
         <td>${newAttack.id}</td>
         <td><a class="link" href="/attackers/${newAttack.attacker_ip}/">${newAttack.attacker_ip}</a></td>
+        <td><span class="badge sensor-${newAttack.sensor}">${newAttack.sensor || 'unknown'}</span></td>
         <td>${newAttack.port}</td>
         <td><span class="badge ${newAttack.attack_type}">${newAttack.attack_type}</span></td>
         <td class="payload" style="max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${newAttack.payload.substring(0, 40)}</td>

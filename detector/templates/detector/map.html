@@ -29,6 +29,7 @@
     padding: 12px 14px; font-size: 10px; color: #8a8a8a; line-height: 2;
   }
   .legend .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; vertical-align: -1px; }
+  .legend .size-note { color: #565656; font-size: 9px; line-height: 1.6; margin-top: 6px; border-top: 1px dotted #2a2a2a; padding-top: 6px; }
 </style>
 {% endblock %}
 
@@ -48,9 +49,9 @@
 <div class="card map-shell">
   <div id="threatMap"></div>
   <div class="legend">
-    <div><span class="swatch" style="background:#4ade80"></span>1–4 attacks</div>
-    <div><span class="swatch" style="background:#fbbf24"></span>5–19 attacks</div>
-    <div><span class="swatch" style="background:#ef4444"></span>20+ attacks</div>
+    <div><span class="swatch" style="background:#22d3ee"></span>ESP32 (office LAN)</div>
+    <div><span class="swatch" style="background:#f97316"></span>VPS (internet)</div>
+    <div class="size-note">circle size = attack volume</div>
   </div>
 </div>
 
@@ -98,33 +99,51 @@
   const map = L.map('threatMap', { zoomControl: true, worldCopyJump: true })
     .setView([20, 10], 2);
 
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; OpenStreetMap &copy; CARTO',
-    subdomains: 'abcd', maxZoom: 18,
-  }).addTo(map);
+  // ── Tiles with fallback (CARTO dark → OpenStreetMap) ──
+  const PROVIDERS = [
+    { url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', opts: { subdomains: 'abcd', maxZoom: 18 } },
+    { url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', opts: { maxZoom: 19 } },
+  ];
+  let providerIdx = 0;
+  function loadTiles() {
+    const layer = L.tileLayer(PROVIDERS[providerIdx].url, {
+      ...PROVIDERS[providerIdx].opts,
+      attribution: '&copy; OpenStreetMap &copy; CARTO',
+    });
+    layer.on('tileerror', () => {
+      if (providerIdx < PROVIDERS.length - 1) {
+        providerIdx += 1;
+        map.removeLayer(layer);
+        loadTiles();
+      }
+    });
+    layer.addTo(map);
+  }
+  loadTiles();
 
-  function colorFor(n) {
-    if (n >= 20) return '#ef4444';
-    if (n >= 5)  return '#fbbf24';
-    return '#4ade80';
+  function sensorColor(s) {
+    if (s === 'esp32-lan')  return '#22d3ee';  // cyan — office LAN sensor
+    if (s === 'vps-sensor') return '#f97316';  // orange — internet sensor
+    return '#94a3b8';
   }
 
   fetch('/api/geo/')
     .then(r => { if (!r.ok) throw 0; return r.json(); })
     .then(({ origins }) => {
       origins.forEach(o => {
+        const c = sensorColor(o.sensor);
         const marker = L.circleMarker([o.lat, o.lon], {
           radius: Math.min(6 + o.count * .6, 16),
-          color: colorFor(o.count),
+          color: c,
           weight: 1.5,
-          fillColor: colorFor(o.count),
+          fillColor: c,
           fillOpacity: .45,
         }).addTo(map);
         marker.bindPopup(
           `<span class="pop-title">${o.ip}</span><br>` +
           `<span class="pop-row"><b>${o.city || '?'}</b>, ${o.country} (${o.country_code})</span><br>` +
           `<span class="pop-row">ISP: <b>${(o.isp || '?').substring(0, 28)}</b></span><br>` +
-          `<span class="pop-row">Attacks: <b style="color:${colorFor(o.count)}">${o.count}</b></span><br>` +
+          `<span class="pop-row">Attacks: <b style="color:${c}">${o.count}</b></span><br>` +
           `<span class="pop-row">Sensor: <b>${o.sensor}</b> · Last: ${o.last_seen}</span>`
         );
       });
