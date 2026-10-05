@@ -457,13 +457,23 @@ def reports_page(request):
 
 @login_required
 def export_csv(request):
+    def csv_safe(value):
+        """Neutralise spreadsheet formula injection (CSV Injection / CWE-1236):
+        an attacker-controlled payload starting with = + - @ (or a control
+        char) would otherwise execute when the export is opened in Excel /
+        Sheets. Prefix with a single quote so it stays readable as text."""
+        s = (value or '').replace('\r', ' ').replace('\n', ' ')
+        if s[:1] in ('=', '+', '-', '@', '\t', '\x00') or s[:2] in ('\r\n',):
+            s = "'" + s
+        return s
+
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="honeypot_attack_log.csv"'
     writer = csv.writer(response)
     writer.writerow(['id', 'attacker_ip', 'sensor', 'port', 'attack_type', 'payload', 'timestamp'])
     for log in AttackLog.objects.all().order_by('-timestamp'):
         writer.writerow([log.id, log.attacker_ip, log.sensor, log.port, log.attack_type,
-                         (log.payload or '').replace('\r', ' ').replace('\n', ' '),
+                         csv_safe(log.payload),
                          log.timestamp.strftime('%Y-%m-%d %H:%M:%S')])
     return response
 
