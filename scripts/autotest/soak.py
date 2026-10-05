@@ -29,15 +29,38 @@ TARGET = "https://fyp.syedaidid.xyz"
 def login_session(user, password):
     """Cookie jar for authenticated browsing (login form + CSRF)."""
     import http.cookiejar
+    import re
     jar = http.cookiejar.CookieJar()
     opener = H.urllib.request.build_opener(H.urllib.request.HTTPCookieProcessor(jar))
-    body = H.urllib.parse.urlencode({"username": user, "password": password}).encode()
-    req = H.urllib.request.Request(f"{TARGET}/accounts/login/", data=body)
+    login_url = f"{TARGET}/accounts/login/"
+
+    # 1) GET the form to obtain the csrftoken cookie
     try:
-        opener.open(req, timeout=10)
+        page = opener.open(H.urllib.request.Request(login_url), timeout=10).read().decode(
+            errors="replace")
     except Exception:
-        pass
-    return opener
+        page = ""
+    m = re.search(r'name="csrfmiddlewaretoken"\s+value="([^"]+)"', page)
+    token = m.group(1) if m else ""
+    if not token:                      # fall back to the cookie itself
+        for ck in jar:
+            if ck.name == "csrftoken":
+                token = ck.value
+
+    # 2) POST credentials with the token and a matching Referer (CSRF enforced)
+    body = H.urllib.parse.urlencode(
+        {"username": user, "password": password, "csrfmiddlewaretoken": token}).encode()
+    req = H.urllib.request.Request(
+        login_url, data=body,
+        headers={"Referer": login_url,
+                 "Content-Type": "application/x-www-form-urlencoded"})
+    try:
+        resp = opener.open(req, timeout=10)
+        final = resp.geturl()
+    except Exception as e:
+        final = f"login failed: {e}"
+    logged = "/accounts/login/" not in final
+    return opener, logged, final
 
 
 def browse_once(opener):
@@ -75,7 +98,13 @@ def main():
 
     total = parse_dur(args.duration)
     interval = float(args.interval)
-    opener = login_session(args.user, args.password) if args.browse else None
+    opener = None
+    if args.browse:
+        opener, logged, final = login_session(args.user, args.password)
+        print(f"[SOAK] login: {'OK -> ' + final if logged else 'FAILED (' + final + ')'}")
+        if not logged:
+            print("[SOAK] falling back to unauthenticated probing (auth pages only)")
+            opener = None
 
     samples, errors, five_hundreds = [], [], 0
     print(f"[SOAK] {args.name}: {args.duration} @ {interval}s interval"

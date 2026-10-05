@@ -1,0 +1,345 @@
+[
+ {
+  "id": "FT-U01",
+  "status": "PASS",
+  "actual": "7 valid types -> [201, 201, 201, 201, 201, 201, 201]; invalid -> 400 (expect 400)",
+  "note": "",
+  "run": "inproc"
+ },
+ {
+  "id": "FT-U02",
+  "status": "PASS",
+  "actual": "valid -> [201, 201, 201]; invalid -> [400, 400, 400] (expect 400s)",
+  "note": "",
+  "run": "inproc"
+ },
+ {
+  "id": "FT-U03",
+  "status": "PASS",
+  "actual": "0/65535 -> [201, 201]; -1/65536 -> [400, 400] (expect 400s)",
+  "note": "",
+  "run": "inproc"
+ },
+ {
+  "id": "FT-U04",
+  "status": "PASS",
+  "actual": "whitelist -> [201, 201]; fake-sensor -> 400 (expect 400)",
+  "note": "",
+  "run": "inproc"
+ },
+ {
+  "id": "FT-U05",
+  "status": "PASS",
+  "actual": "501-char payload stored as len=500 (cut to 500)",
+  "note": "",
+  "run": "inproc"
+ },
+ {
+  "id": "FT-U06",
+  "status": "PASS",
+  "actual": "correct key -> 201; wrong key -> 403 (expect 403)",
+  "note": "",
+  "run": "inproc"
+ },
+ {
+  "id": "FT-U07",
+  "status": "PASS",
+  "actual": "same event_id twice -> rows=1 (expect 1); second status=200",
+  "note": "",
+  "run": "inproc"
+ },
+ {
+  "id": "FT-U08",
+  "status": "PASS",
+  "actual": "3 ports in 5s -> events=['port_scan', 'ip_blocked']; banned=True",
+  "note": "",
+  "run": "inproc"
+ },
+ {
+  "id": "FT-U09",
+  "status": "PASS",
+  "actual": "3 fails in 60s -> events=['brute_force', 'ip_blocked']; banned=True",
+  "note": "",
+  "run": "inproc"
+ },
+ {
+  "id": "FT-U10",
+  "status": "PASS",
+  "actual": "banned=True before 10min; after +601s banned=False",
+  "note": "",
+  "run": "inproc"
+ },
+ {
+  "id": "FT-U11",
+  "status": "PASS",
+  "actual": "4 formula payloads stored+exported; un-neutralised cells: none",
+  "note": "",
+  "run": "inproc"
+ },
+ {
+  "id": "FT-U12",
+  "status": "PASS",
+  "actual": "status=200; magic=b'%PDF'; 13429 bytes",
+  "note": "",
+  "run": "inproc"
+ },
+ {
+  "id": "FT-U13",
+  "status": "PASS",
+  "actual": "52/52 unit tests OK in the deployed environment [honeypot.settings_local] \u2014 Ran 52 tests in 56.497s",
+  "note": "",
+  "run": "inproc"
+ },
+ {
+  "id": "FT-I01",
+  "status": "PASS",
+  "actual": "POST -> 201; row in DB id=12480",
+  "note": "",
+  "run": "inproc"
+ },
+ {
+  "id": "FT-I02",
+  "status": "PASS",
+  "actual": "POST -> 201; row in DB id=12481",
+  "note": "",
+  "run": "inproc"
+ },
+ {
+  "id": "FT-I03",
+  "status": "PASS",
+  "actual": "geo for 8.8.8.8: country=United States city=Ashburn",
+  "note": "",
+  "run": "inproc"
+ },
+ {
+  "id": "FT-I04",
+  "status": "PASS",
+  "actual": "dashboard total 110 -> 111",
+  "note": "",
+  "run": "inproc"
+ },
+ {
+  "id": "FT-I05",
+  "status": "PASS",
+  "actual": "map context rows=2, IP present=True; /api/geo/ origins=2 (top-200 window), IP present with count=3/3",
+  "note": "",
+  "run": "inproc"
+ },
+ {
+  "id": "FT-I06",
+  "status": "PASS",
+  "actual": "profile total=4, 24h chart sum=4, DB rows=4",
+  "note": "",
+  "run": "inproc"
+ },
+ {
+  "id": "FT-I07",
+  "status": "PASS",
+  "actual": "DB rows=111; CSV data rows=111; PDF magic=b'%PDF'",
+  "note": "",
+  "run": "inproc"
+ },
+ {
+  "id": "FT-I10",
+  "status": "PASS",
+  "actual": "latest feed sensors for test rows: {'vps-sensor', 'esp32-lan'}",
+  "note": "",
+  "run": "inproc"
+ },
+ {
+  "id": "FT-S02",
+  "status": "PASS",
+  "actual": "login POST -> 302 /; dashboard 200; all panels visible=True",
+  "note": "",
+  "run": "inproc"
+ },
+ {
+  "id": "FT-S07",
+  "status": "PASS",
+  "actual": "types in log for test IP: ['admin_panel_access', 'brute_force', 'connection_attempt', 'http_brute_force', 'http_scan', 'ip_blocked', 'port_scan']",
+  "note": "",
+  "run": "inproc"
+ },
+ {
+  "id": "FT-S08",
+  "status": "PASS",
+  "actual": "ingested id=12500; newest in live feed id=12500",
+  "note": "",
+  "run": "inproc"
+ },
+ {
+  "id": "FT-S09",
+  "status": "PASS",
+  "actual": "CSV 115 rows parse OK; PDF magic=b'%PDF'",
+  "note": "",
+  "run": "inproc"
+ },
+ {
+  "id": "NFT-P01",
+  "status": "PASS",
+  "actual": "status=200; render=0.14s (limit 5s); panels={'stat bar': True, 'chart': True, 'map': True, 'table': True}",
+  "note": "",
+  "run": "inproc"
+ },
+ {
+  "id": "NFT-P02",
+  "status": "PASS",
+  "actual": "status=200; render=0.02s (limit 5s)",
+  "note": "",
+  "run": "inproc"
+ },
+ {
+  "id": "NFT-P03",
+  "status": "PASS",
+  "actual": "JS 10s interval present=True; /api/latest/ -> 200",
+  "note": "",
+  "run": "inproc"
+ },
+ {
+  "id": "NFT-P04",
+  "status": "PASS",
+  "actual": "1114 events in log; render=0.09s (limit 5s)",
+  "note": "",
+  "run": "inproc"
+ },
+ {
+  "id": "NFT-P05",
+  "status": "PASS",
+  "actual": "PDF in 0.14s (limit 10s); 13443 bytes",
+  "note": "",
+  "run": "inproc"
+ },
+ {
+  "id": "NFT-P06",
+  "status": "PASS",
+  "actual": "CSV in 0.03s (limit 5s); 23133 bytes",
+  "note": "",
+  "run": "inproc"
+ },
+ {
+  "id": "NFT-P07",
+  "status": "PASS",
+  "actual": "60 requests -> 60 accepted (expect 60)",
+  "note": "",
+  "run": "inproc"
+ },
+ {
+  "id": "NFT-P08",
+  "status": "PASS",
+  "actual": "61st request -> 429 (expect 429)",
+  "note": "",
+  "run": "inproc"
+ },
+ {
+  "id": "NFT-P09",
+  "status": "PASS",
+  "actual": "3 ports -> events=['port_scan', 'ip_blocked']; banned=True; probe while banned added 0 extra events (throttled)",
+  "note": "",
+  "run": "inproc"
+ },
+ {
+  "id": "NFT-S01",
+  "status": "PASS",
+  "actual": "no key -> 403; new rows=0",
+  "note": "",
+  "run": "inproc"
+ },
+ {
+  "id": "NFT-S02",
+  "status": "PASS",
+  "actual": "wrong key -> 403; new rows=0",
+  "note": "",
+  "run": "inproc"
+ },
+ {
+  "id": "NFT-S03",
+  "status": "PASS",
+  "actual": "61st request -> 429 (expect 429)",
+  "note": "",
+  "run": "inproc"
+ },
+ {
+  "id": "NFT-S04",
+  "status": "PASS",
+  "actual": "duplicate event_id -> rows=1 (expect 1)",
+  "note": "",
+  "run": "inproc"
+ },
+ {
+  "id": "NFT-S05",
+  "status": "PASS",
+  "actual": "invalid IP -> 400 (expect 400)",
+  "note": "",
+  "run": "inproc"
+ },
+ {
+  "id": "NFT-S06",
+  "status": "PASS",
+  "actual": "port 70000 -> 400 (expect 400)",
+  "note": "",
+  "run": "inproc"
+ },
+ {
+  "id": "NFT-S07",
+  "status": "PASS",
+  "actual": "fake-sensor -> 400 (expect 400)",
+  "note": "",
+  "run": "inproc"
+ },
+ {
+  "id": "NFT-S08",
+  "status": "PASS",
+  "actual": "600-char payload stored as len=500 (cut to 500)",
+  "note": "",
+  "run": "inproc"
+ },
+ {
+  "id": "NFT-S09",
+  "status": "PASS",
+  "actual": "unauth / -> 302, /admin/ -> 302 (expect redirect)",
+  "note": "",
+  "run": "inproc"
+ },
+ {
+  "id": "NFT-S10",
+  "status": "PASS",
+  "actual": "5 wrong then correct -> 429 (403/429 = locked)",
+  "note": "",
+  "run": "inproc"
+ },
+ {
+  "id": "NFT-S12",
+  "status": "PASS",
+  "actual": "4 formula payloads stored+exported; un-neutralised cells: none",
+  "note": "",
+  "run": "inproc"
+ },
+ {
+  "id": "NFT-R03",
+  "status": "PASS",
+  "actual": "dead-endpoint POST handled without exception; console reports :23 -> 0",
+  "note": "",
+  "run": "inproc"
+ },
+ {
+  "id": "NFT-R04",
+  "status": "PASS",
+  "actual": "retry with same event_id -> rows=1 (expect 1)",
+  "note": "",
+  "run": "inproc"
+ },
+ {
+  "id": "NFT-R05",
+  "status": "PASS",
+  "actual": "banned=True before 10min; after +601s banned=False",
+  "note": "",
+  "run": "inproc"
+ },
+ {
+  "id": "CLEANUP",
+  "status": "PASS",
+  "actual": "removed 205 tagged + 27 TEST-NET rows + 1 test users",
+  "note": "",
+  "run": "inproc"
+ }
+]

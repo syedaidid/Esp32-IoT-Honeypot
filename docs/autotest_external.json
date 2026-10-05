@@ -1,0 +1,30 @@
+[
+ {
+  "id": "NFT-S11",
+  "status": "PASS",
+  "actual": "http -> 301 Location=https://fyp.syedaidid.xyz/; cert issuer=Let's Encrypt, valid until Dec 31 19:54:15 2026 GMT",
+  "note": "",
+  "run": "external"
+ },
+ {
+  "id": "NFT-R09",
+  "status": "PASS",
+  "actual": "3/3 probes returned 200; cert valid=True",
+  "note": "",
+  "run": "external"
+ },
+ {
+  "id": "FT-I09",
+  "status": "PASS",
+  "actual": "login page 200 (form=True, 1.15s); unauth / -> 302 /accounts/login/?next=/",
+  "note": "",
+  "run": "external"
+ },
+ {
+  "id": "NFT-P01e",
+  "status": "PASS",
+  "actual": "public entry page 200 in 1.02s (limit 5s)",
+  "note": "",
+  "run": "external"
+ }
+]

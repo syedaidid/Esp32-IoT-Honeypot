@@ -84,20 +84,30 @@ def _row(tid, desc, exp, actual, status):
 def render_markdown(results: dict[str, Check]) -> str:
     now = __import__("datetime").datetime.now().strftime("%Y-%m-%d %H:%M")
     total = len(ALL_IDS)
-    counts = {"PASS": 0, "FAIL": 0, "BLOCKED": 0, "SKIP": 0, "MANUAL": 0}
-    for c in results.values():
-        counts[c.status] = counts.get(c.status, 0) + 1
-    automated = total - counts["MANUAL"]
-    pass_rate = (counts["PASS"] / automated * 100) if automated else 0
+    counts = {"PASS": 0, "FAIL": 0, "BLOCKED": 0, "SKIP": 0, "MANUAL": 0, "NOT RUN": 0}
+    for tid in ALL_IDS:                       # only matrix cases are counted
+        st = results.get(tid).status if tid in results else (
+            "MANUAL" if BY_ID[tid][3] == "manual" else "NOT RUN")
+        counts[st] = counts.get(st, 0) + 1
+
+    human = counts["MANUAL"]
+    not_run = counts["NOT RUN"]
+    executed = total - human - not_run       # automated cases actually exercised
+    passed = counts["PASS"]
+    failed = counts["FAIL"] + counts["BLOCKED"] + counts["SKIP"]
+    rate = (passed / executed * 100) if executed else 0.0
 
     out = [
         "# Automated Test Results — FYP4112 ESP32 IoT Honeypot",
         "",
         f"**Generated:** {now} (automated harness `scripts/autotest/`)  ",
-        f"**Summary:** {counts['PASS']} pass · {counts['FAIL']} fail · {counts['BLOCKED']} blocked · "
-        f"{counts['SKIP']} skip · {counts['MANUAL']} manual (human)  ",
-        f"**Automated pass rate:** {pass_rate:.1f}% of {automated} executable cases "
-        f"({total} total incl. manual)",
+        f"**Total test cases:** {total} "
+        f"({executed} automated/executed · {human} human-only · {not_run} not yet run)  ",
+        f"**Automated results:** {passed} pass · {failed} not pass "
+        f"({counts['FAIL']} fail · {counts['BLOCKED']} blocked · {counts['SKIP']} skip)  ",
+        f"**Automated pass rate:** {rate:.1f}% ({passed}/{executed} executed cases)  ",
+        "> Human-only cases (usability questionnaire + UAT) are not machine-scored; "
+        "score them with `score_forms.py` once responses are collected.",
         "",
     ]
     for section, rows in SECTIONS:

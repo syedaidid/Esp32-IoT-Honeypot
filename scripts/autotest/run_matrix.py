@@ -22,16 +22,30 @@ RESULTS = ROOT / "docs"
 
 
 def cleanup_tagged_rows():
-    """Remove any harness-created AttackLog rows (payload starts with [TM])."""
+    """Remove any harness-created AttackLog rows.
+
+    Two criteria are used so nothing survives:
+      * payload starts with the [TM] marker, and
+      * attacker_ip is inside the RFC 5737 TEST-NET blocks the harness uses.
+    Rows created by the truncation/length checks carry an untagged filler payload,
+    so the IP-range sweep is required as well."""
     try:
         os.environ.setdefault("DJANGO_SETTINGS_MODULE", "honeypot.settings")
         import django
         django.setup()
+        from django.db.models import Q
         from detector.models import AttackLog
-        n, _ = AttackLog.objects.filter(payload__startswith="[TM]").delete()
-        return f"removed {n} [TM] test rows"
+        tagged = AttackLog.objects.filter(payload__startswith="[TM]")
+        testnet = AttackLog.objects.filter(
+            Q(attacker_ip__startswith="198.51.100.") | Q(attacker_ip__startswith="203.0.113."))
+        n1, _ = tagged.delete()
+        n2, _ = testnet.delete()
+        # throwaway superusers created by the login check
+        from django.contrib.auth.models import User
+        nu, _ = User.objects.filter(username__startswith="autotest").delete()
+        return f"removed {n1} tagged + {n2} TEST-NET rows + {nu} test users"
     except Exception as e:
-        return f"cleanup skipped ({type(e).__name__})"
+        return f"cleanup skipped ({type(e).__name__}: {e})"
 
 
 def run_inproc(disruptive=False, keep=False):

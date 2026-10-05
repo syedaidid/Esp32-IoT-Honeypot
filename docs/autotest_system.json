@@ -1,0 +1,72 @@
+[
+ {
+  "id": "FT-I08",
+  "status": "PASS",
+  "actual": "4 services running: honeypot_db honeypot_nginx honeypot_sensor honeypot_web",
+  "note": "",
+  "run": "system"
+ },
+ {
+  "id": "FT-S01",
+  "status": "PASS",
+  "actual": "4 services running: honeypot_db honeypot_nginx honeypot_sensor honeypot_web",
+  "note": "",
+  "run": "system"
+ },
+ {
+  "id": "FT-S03",
+  "status": "PASS",
+  "actual": "credentials captured: payload contains user='autotest_user' + password",
+  "note": "",
+  "run": "system"
+ },
+ {
+  "id": "FT-S04",
+  "status": "PASS",
+  "actual": "scanned [2323, 21, 5555] in 0.0s -> port_scan logged (127.0.0.1 now banned)",
+  "note": "",
+  "run": "system"
+ },
+ {
+  "id": "FT-S05",
+  "status": "PASS",
+  "actual": "ip_blocked rows 4 -> 5 after 3 rapid probes while banned (throttle = max 1 per 30s)",
+  "note": "",
+  "run": "system"
+ },
+ {
+  "id": "FT-S06",
+  "status": "FAIL",
+  "actual": "no HTTP decoy service \u2014 the VPS sensor exposes telnet/FTP/ADB/TR-069 traps only, so http_scan/admin_panel_access are recorded only via ingest (ESP32 firmware has the HTTP decoy; untested, no hardware)",
+  "note": "",
+  "run": "system"
+ },
+ {
+  "id": "NFT-R01",
+  "status": "PASS",
+  "actual": "count 4078 -> 4078; site reachable in 2.1s",
+  "note": "",
+  "run": "system"
+ },
+ {
+  "id": "NFT-R08",
+  "status": "PASS",
+  "actual": "sensor restarted and captured a fresh probe (clean state)",
+  "note": "",
+  "run": "system"
+ },
+ {
+  "id": "NFT-R02",
+  "status": "PASS",
+  "actual": "count 4079 -> 4079; site reachable in 2.1s",
+  "note": "",
+  "run": "system"
+ },
+ {
+  "id": "FT-S10",
+  "status": "PASS",
+  "actual": "count 4079 -> 4079; site reachable in 2.0s",
+  "note": "",
+  "run": "system"
+ }
+]
