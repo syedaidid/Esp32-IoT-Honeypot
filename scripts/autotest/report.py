@@ -59,12 +59,22 @@ class Recorder:
 
 # ── merging multiple run files + rendering ───────────────────────────────────
 def load_runs(pattern="autotest_*.json") -> dict[str, Check]:
-    """Merge all autotest_<run>.json files → {test_id: best Check}."""
+    """Merge all autotest_<run>.json files → {test_id: best Check}.
+
+    soak_<name>.json files are also merged: the soak monitor writes the same
+    {id: {status, actual}} shape, so those endurance results appear in the report."""
     best: dict[str, Check] = {}
     rank = {"PASS": 4, "FAIL": 3, "BLOCKED": 2, "SKIP": 1, "MANUAL": 0}
-    for f in sorted(RESULTS_DIR.glob(pattern)):
+    sources = list(RESULTS_DIR.glob(pattern)) + sorted(RESULTS_DIR.glob("soak_*.json"))
+    for f in sources:
         try:
-            for d in json.loads(f.read_text()):
+            data = json.loads(f.read_text())
+            # autotest files hold a list of check dicts; soak files a {id: {...}} map
+            items = data if isinstance(data, list) else [
+                dict(v, id=k) for k, v in data.items()]
+            for d in items:
+                d.setdefault("run", f.stem)
+                d.setdefault("note", "")
                 c = Check(**d)
                 cur = best.get(c.id)
                 if cur is None or rank.get(c.status, 0) > rank.get(cur.status, 0):

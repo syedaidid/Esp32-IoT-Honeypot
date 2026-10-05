@@ -1,6 +1,6 @@
 # Automated Test Results — FYP4112 ESP32 IoT Honeypot
 
-**Generated:** 2026-10-06 03:32 (automated harness `scripts/autotest/`)  
+**Generated:** 2026-10-06 03:35 (automated harness `scripts/autotest/`)  
 **Total test cases:** 77 (61 automated/executed · 14 human-only · 2 not yet run)  
 **Automated results:** 60 pass · 1 not pass (1 fail · 0 blocked · 0 skip)  
 **Automated pass rate:** 98.4% (60/61 executed cases)  
