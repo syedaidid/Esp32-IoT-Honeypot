@@ -79,28 +79,28 @@
  {
   "id": "FT-U12",
   "status": "PASS",
-  "actual": "status=200; magic=b'%PDF'; 13429 bytes",
+  "actual": "status=200; magic=b'%PDF'; 12210 bytes",
   "note": "",
   "run": "inproc"
  },
  {
   "id": "FT-U13",
   "status": "PASS",
-  "actual": "52/52 unit tests OK in the deployed environment [honeypot.settings_local] \u2014 Ran 52 tests in 56.497s",
+  "actual": "52/52 unit tests OK in the deployed environment [honeypot.settings_local] \u2014 Ran 52 tests in 52.313s",
   "note": "",
   "run": "inproc"
  },
  {
   "id": "FT-I01",
   "status": "PASS",
-  "actual": "POST -> 201; row in DB id=12480",
+  "actual": "POST -> 201; row in DB id=13710",
   "note": "",
   "run": "inproc"
  },
  {
   "id": "FT-I02",
   "status": "PASS",
-  "actual": "POST -> 201; row in DB id=12481",
+  "actual": "POST -> 201; row in DB id=13711",
   "note": "",
   "run": "inproc"
  },
@@ -114,7 +114,7 @@
  {
   "id": "FT-I04",
   "status": "PASS",
-  "actual": "dashboard total 110 -> 111",
+  "actual": "dashboard total 86 -> 87",
   "note": "",
   "run": "inproc"
  },
@@ -135,7 +135,7 @@
  {
   "id": "FT-I07",
   "status": "PASS",
-  "actual": "DB rows=111; CSV data rows=111; PDF magic=b'%PDF'",
+  "actual": "DB rows=87; CSV data rows=87; PDF magic=b'%PDF'",
   "note": "",
   "run": "inproc"
  },
@@ -163,28 +163,28 @@
  {
   "id": "FT-S08",
   "status": "PASS",
-  "actual": "ingested id=12500; newest in live feed id=12500",
+  "actual": "ingested id=13730; newest in live feed id=13730",
   "note": "",
   "run": "inproc"
  },
  {
   "id": "FT-S09",
   "status": "PASS",
-  "actual": "CSV 115 rows parse OK; PDF magic=b'%PDF'",
+  "actual": "CSV 91 rows parse OK; PDF magic=b'%PDF'",
   "note": "",
   "run": "inproc"
  },
  {
   "id": "NFT-P01",
   "status": "PASS",
-  "actual": "status=200; render=0.14s (limit 5s); panels={'stat bar': True, 'chart': True, 'map': True, 'table': True}",
+  "actual": "status=200; render=0.07s (limit 5s); panels={'stat bar': True, 'chart': True, 'map': True, 'table': True}",
   "note": "",
   "run": "inproc"
  },
  {
   "id": "NFT-P02",
   "status": "PASS",
-  "actual": "status=200; render=0.02s (limit 5s)",
+  "actual": "status=200; render=0.03s (limit 5s)",
   "note": "",
   "run": "inproc"
  },
@@ -198,21 +198,21 @@
  {
   "id": "NFT-P04",
   "status": "PASS",
-  "actual": "1114 events in log; render=0.09s (limit 5s)",
+  "actual": "1090 events in log; render=0.08s (limit 5s)",
   "note": "",
   "run": "inproc"
  },
  {
   "id": "NFT-P05",
   "status": "PASS",
-  "actual": "PDF in 0.14s (limit 10s); 13443 bytes",
+  "actual": "PDF in 0.10s (limit 10s); 12640 bytes",
   "note": "",
   "run": "inproc"
  },
  {
   "id": "NFT-P06",
   "status": "PASS",
-  "actual": "CSV in 0.03s (limit 5s); 23133 bytes",
+  "actual": "CSV in 0.02s (limit 5s); 9305 bytes",
   "note": "",
   "run": "inproc"
  },
@@ -338,7 +338,7 @@
  {
   "id": "CLEANUP",
   "status": "PASS",
-  "actual": "removed 205 tagged + 27 TEST-NET rows + 1 test users",
+  "actual": "removed 205 tagged + 3 TEST-NET rows + 0 test users",
   "note": "",
   "run": "inproc"
  }
