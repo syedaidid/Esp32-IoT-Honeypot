@@ -488,16 +488,36 @@ def i05():
         AttackLog.objects.create(attacker_ip=ip, port=1, attack_type="port_scan",
                                  payload=H.TEST_TAG, sensor="vps-sensor")
 
-    origins = json.loads(c.get("/api/geo/").content).get("origins") or []
+    # 3) private-LAN events (ESP32 peers) must surface in the `lan` bucket, not be
+    #    silently dropped — otherwise the ESP32 colour never appears on the map.
+    #    Uses an unused private IP + the [TM] marker so real LAN data is untouched.
+    lan_ip = "10.77.77.77"
+    AttackLog.objects.filter(attacker_ip=lan_ip, payload__startswith=H.TEST_TAG).delete()
+    lan_before = AttackLog.objects.filter(attacker_ip=lan_ip).count()
+    for _ in range(3):
+        AttackLog.objects.create(attacker_ip=lan_ip, port=2323, attack_type="brute_force",
+                                 payload=H.TEST_TAG, sensor="esp32-lan")
+
+    geo = json.loads(c.get("/api/geo/").content)
+    origins = geo.get("origins") or []
     origin = next((o for o in origins if o.get("ip") == ip), None)
     in_api = origin is not None and origin["count"] == needed and origin["sensor"] == "vps-sensor"
 
-    AttackLog.objects.filter(attacker_ip=ip, payload=H.TEST_TAG).delete()
+    lan = geo.get("lan") or []
+    lan_row = next((o for o in lan if o.get("ip") == lan_ip), None)
+    lan_ok = (lan_row is not None and lan_row["count"] >= lan_before + 3
+              and lan_row["sensor"] == "esp32-lan")
+    # private IP must never be plotted as a world marker
+    not_plotted = not any(o.get("ip") == lan_ip for o in origins)
+    sensors = geo.get("sensors") or {}
+
+    AttackLog.objects.filter(attacker_ip=ip).delete()
+    AttackLog.objects.filter(attacker_ip=lan_ip, payload__startswith=H.TEST_TAG).delete()
     AttackerGeo.objects.filter(attacker_ip=ip).delete()
-    return (in_context and in_api,
+    return (in_context and in_api and lan_ok and not_plotted and "esp32-lan" in sensors,
             f"map context rows={len(geo_rows)}, IP present={in_context}; "
-            f"/api/geo/ origins={len(origins)} (top-200 window), IP present with "
-            f"count={origin['count'] if origin else 'absent'}/{needed}")
+            f"public markers={len(origins)} (IP count={origin['count'] if origin else 'absent'}/{needed}); "
+            f"LAN bucket={lan_row}; sensor totals={sensors}")
 
 
 def i06():

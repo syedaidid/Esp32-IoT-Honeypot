@@ -269,19 +269,39 @@ def stats_api(request):
 # ── Geolocation data for the threat map ──
 @login_required
 def geo_api(request):
-    """Attack origins joined with cached geo lookups — feeds the Leaflet map."""
+    """Attack origins joined with cached geo lookups — feeds the Leaflet map.
+
+    Two buckets are returned:
+      * `origins`  — public IPs with a cached geolocation (plotted as markers);
+      * `lan`      — RFC1918 / private-LAN origins. These cannot be geolocated, but
+        they are NOT dropped: the ESP32 sensor reports peer devices on the office
+        LAN (e.g. 10.x.x.x), so they are listed separately with their sensor colour.
+      * `sensors`  — per-sensor event totals, used by the map legend.
+    Loopback (127.x) is excluded from both: it is self-generated test traffic.
+    """
     rows = (
         AttackLog.objects
-        .exclude(attacker_ip__startswith='192.168.')
-        .exclude(attacker_ip__startswith='10.')
-        .exclude(attacker_ip__startswith='172.16.')
         .values('attacker_ip', 'sensor')
         .annotate(count=Count('id'), last_seen=Max('timestamp'))
-        .order_by('-count')[:200]
+        .order_by('-count')
     )
+    lan_q = Q()
+    for _net in ('10.', '192.168.', '169.254.', '172.31.') + tuple(
+            f'172.{_n}.' for _n in range(16, 31)):
+        lan_q |= Q(attacker_ip__startswith=_net)
+    loopback_q = Q(attacker_ip__startswith='127.')
+
+    # private LAN origins (ESP32 peers) — not plottable, but reported to the UI
+    lan = [{
+        'ip': r['attacker_ip'],
+        'sensor': r['sensor'],
+        'count': r['count'],
+        'last_seen': r['last_seen'].strftime('%Y-%m-%d %H:%M:%S'),
+    } for r in rows.filter(lan_q).exclude(loopback_q)[:20]]
+
     geos = {g.attacker_ip: g for g in AttackerGeo.objects.all()}
     data = []
-    for r in rows:
+    for r in rows.exclude(lan_q | loopback_q)[:200]:
         g = geos.get(r['attacker_ip'])
         if g and g.latitude is not None and g.longitude is not None:
             data.append({
@@ -296,7 +316,9 @@ def geo_api(request):
                 'sensor': r['sensor'],
                 'last_seen': r['last_seen'].strftime('%Y-%m-%d %H:%M:%S'),
             })
-    return JsonResponse({'origins': data})
+    sensors = dict(
+        AttackLog.objects.values('sensor').annotate(n=Count('id')).values_list('sensor', 'n'))
+    return JsonResponse({'origins': data, 'lan': lan, 'sensors': sensors})
 
 # ── Full attack log (paginated + filterable) ──
 @login_required

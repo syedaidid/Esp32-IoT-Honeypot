@@ -72,7 +72,8 @@
 <div class="card map-shell">
   <div class="console-bar">
     <span class="rec">●</span>
-    ATTACK ORIGINS — GEOLocated
+    ATTACK ORIGINS — GEOLOCATED
+    <span id="lanNote" style="font-size:9px;color:#22d3ee;margin-left:10px"></span>
     <span style="flex:1"></span>
     <a href="{% url 'threat_map' %}" class="link" style="font-size:10px;letter-spacing:.14em">FULL MAP →</a>
   </div>
@@ -208,7 +209,7 @@
     try {
       const r = await fetch('/api/geo/');
       if (!r.ok) return;
-      const { origins } = await r.json();
+      const { origins, lan } = await r.json();
       geoLayer.clearLayers();
       origins.forEach(o => {
         const c = miniMapColor(o.sensor);
@@ -220,6 +221,14 @@
         .bindPopup(`<b style="color:#4ade80">${o.ip}</b><br>${o.city || '?'}, ${o.country}<br>Attacks: ${o.count}<br>Sensor: ${o.sensor}`)
         .addTo(geoLayer);
       });
+      // private LAN peers (ESP32) cannot be plotted — surface them in the header
+      const note = document.getElementById('lanNote');
+      if (note) {
+        note.innerHTML = (lan && lan.length)
+          ? '· LAN: ' + lan.map(o => o.ip).join(', ') +
+            ' (' + lan.reduce((s, o) => s + o.count, 0) + ')'
+          : '';
+      }
     } catch (e) { /* non-fatal */ }
   }
   refreshGeo();

@@ -29,6 +29,7 @@
     padding: 12px 14px; font-size: 10px; color: #8a8a8a; line-height: 2;
   }
   .legend .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; vertical-align: -1px; }
+  .legend .lg-count { color: #b5b5b5; font-weight: 600; }
   .legend .size-note { color: #565656; font-size: 9px; line-height: 1.6; margin-top: 6px; border-top: 1px dotted #2a2a2a; padding-top: 6px; }
 </style>
 {% endblock %}
@@ -49,10 +50,15 @@
 <div class="card map-shell">
   <div id="threatMap"></div>
   <div class="legend">
-    <div><span class="swatch" style="background:#22d3ee"></span>ESP32 (office LAN)</div>
-    <div><span class="swatch" style="background:#f97316"></span>VPS (internet)</div>
+    <div><span class="swatch" style="background:#22d3ee"></span>ESP32 (office LAN)<span id="lgEsp32" class="lg-count"></span></div>
+    <div><span class="swatch" style="background:#f97316"></span>VPS (internet)<span id="lgVps" class="lg-count"></span></div>
     <div class="size-note">circle size = attack volume</div>
     <div class="size-note" id="tileStatus">TILES: AUTO</div>
+    <div id="lanBox" style="display:none; margin-top:8px; border-top:1px dotted #2a2a2a; padding-top:8px;">
+      <div style="font-size:9px; letter-spacing:.08em; color:#6b7280; text-transform:uppercase; margin-bottom:5px;">Local network — not geolocatable</div>
+      <div id="lanList" style="font-size:10px; line-height:1.7;"></div>
+      <div class="size-note" style="border:0; padding:0; margin-top:4px;">Private LAN peers cannot be plotted on a world map.</div>
+    </div>
   </div>
 </div>
 
@@ -146,7 +152,7 @@
 
   fetch('/api/geo/')
     .then(r => { if (!r.ok) throw 0; return r.json(); })
-    .then(({ origins }) => {
+    .then(({ origins, lan, sensors }) => {
       origins.forEach(o => {
         const c = sensorColor(o.sensor);
         const marker = L.circleMarker([o.lat, o.lon], {
@@ -164,7 +170,23 @@
           `<span class="pop-row">Sensor: <b>${o.sensor}</b> · Last: ${o.last_seen}</span>`
         );
       });
-      if (!origins.length) {
+
+      // legend: live per-sensor totals so the ESP32 colour is backed by real numbers
+      const n = id => (sensors && sensors[id]) ? sensors[id] : 0;
+      const set = (sel, val) => { const e = document.querySelector(sel); if (e) e.textContent = ` · ${val}`; };
+      set('#lgEsp32', n('esp32-lan'));
+      set('#lgVps', n('vps-sensor'));
+
+      // LAN peers: real events that cannot be pinned to a world coordinate
+      if (lan && lan.length) {
+        document.getElementById('lanBox').style.display = '';
+        document.getElementById('lanList').innerHTML = lan.slice(0, 8).map(o =>
+          `<div><span class="swatch" style="background:${sensorColor(o.sensor)}"></span>` +
+          `<b>${o.ip}</b> · ${o.count} event${o.count === 1 ? '' : 's'} · ${o.last_seen}</div>`
+        ).join('');
+      }
+
+      if (!origins.length && !(lan && lan.length)) {
         document.querySelector('.legend').insertAdjacentHTML('afterbegin',
           '<div style="color:#f87171">NO GEO DATA YET</div>');
       }
